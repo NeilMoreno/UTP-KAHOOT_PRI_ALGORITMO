@@ -6,7 +6,7 @@ Fecha de diagnóstico: 14 de noviembre de 2026.
 
 Proyecto: `C:\xampp\htdocs\kahoot`.
 
-Estado del plan: bloques 1, 2, 4 y 6 completados; el siguiente bloque de implementación es el 3A (panel del superadministrador).
+Estado del plan: bloques 1, 2, 3A, 4 y 6 completados; el siguiente bloque de implementación es el 8 (analíticas académicas).
 
 ## 1. Objetivo
 
@@ -151,16 +151,26 @@ Dependencias: bloques 1 y 2.
 
 Objetivo: habilitar usuarios y recursos IA desde la web.
 
-- [ ] Crear panel inicial del superadministrador.
-- [ ] Crear, listar y revocar invitaciones.
-- [ ] Consultar usuarios y gestionar sus estados.
-- [ ] Añadir un listado administrativo de usuarios si es necesario; no se encontró una ruta general en las rutas revisadas.
-- [ ] Gestionar dominios institucionales con las APIs existentes.
-- [ ] Consultar docentes y asignar cuotas con periodo de vigencia.
-- [ ] Consultar consumo, reservas y disponibilidad de tokens.
-- [ ] Incorporar navegación por rol y estados vacíos o de error.
+- [x] Crear panel inicial del superadministrador.
+- [x] Crear, listar y revocar invitaciones.
+- [x] Consultar usuarios y gestionar sus estados.
+- [x] Añadir un listado administrativo de usuarios si es necesario; no se encontró una ruta general en las rutas revisadas.
+- [x] Gestionar dominios institucionales con las APIs existentes.
+- [x] Consultar docentes y asignar cuotas con periodo de vigencia.
+- [x] Consultar consumo, reservas y disponibilidad de tokens.
+- [x] Incorporar navegación por rol y estados vacíos o de error.
 
 Regla de identidad: completar una invitación válida activa al usuario. La aprobación de docentes pendientes solo se aplica a los casos contemplados por el modelo vigente; no debe introducir un segundo paso obligatorio para toda invitación.
+
+Estado: **completado el 2026-11-17**.
+
+Evidencia:
+- Nuevo `GET /api/auth/usuarios` con filtros por rol, estado, institución y búsqueda; y `GET /api/auth/admin/instituciones` con dominios y métricas.
+- `PATCH /api/auth/usuarios/:id/estado` ahora gestiona estudiantes y docentes, protege al superadministrador y revoca sesiones al inactivar. Se corrigió una inferencia de tipos de PostgreSQL (`42P08`) separando el parámetro del estado.
+- Vistas `dashboard`, `users`, `invitations`, `institutions` y `quotas` bajo `frontend/js/views/admin/`, con navegación completa para el rol.
+- Invitaciones con creación, filtro por estado, revocación y enlace de desarrollo copiable; dominios institucionales con alta y activación/desactivación; cuotas por docente con periodo y panel de consumo.
+- Prueba headless de interfaz: panel, usuarios, invitación con enlace, instituciones con dominio UTP, cuota y consumo. Sin errores de consola; los datos de prueba se eliminaron.
+- Prueba de integración `admin-panel.integration.test.js` ejecutada y aprobada.
 
 Referencias: `backend/routes/authRoutes.js`, `backend/routes/aiRoutes.js`, `backend/controllers/authController.js`, `backend/controllers/identityController.js`, `backend/controllers/aiQuotaController.js`, `frontend/js/views/home.js`, `frontend/js/layout.js`.
 

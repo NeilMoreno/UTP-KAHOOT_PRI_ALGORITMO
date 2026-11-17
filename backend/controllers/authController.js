@@ -208,6 +208,78 @@ const getInstituciones = async (req, res, next) => {
     }
 };
 
+/**
+ * Listado administrativo de usuarios con filtros
+ * GET /api/auth/usuarios?rol=&estado=&id_institucion=&q=
+ */
+const getUsuarios = async (req, res, next) => {
+    try {
+        const role = req.query?.rol === undefined ? null : cleanString(req.query.rol, { min: 6, max: 25, lower: true });
+        const status = req.query?.estado === undefined ? null : cleanString(req.query.estado, { min: 6, max: 10, lower: true });
+        const institution = req.query?.id_institucion || null;
+        const term = req.query?.q === undefined ? null : cleanString(req.query.q, { min: 1, max: 100 });
+
+        if (role !== null && !['estudiante', 'docente', 'superadministrador'].includes(role)) {
+            return res.status(400).json({ success: false, message: 'Rol de usuario no válido.' });
+        }
+        if (status !== null && !['pendiente', 'activo', 'inactivo'].includes(status)) {
+            return res.status(400).json({ success: false, message: 'Estado de usuario no válido.' });
+        }
+        if (institution !== null && !isUuid(institution)) {
+            return res.status(400).json({ success: false, message: 'Institución no válida.' });
+        }
+
+        const result = await query(`
+            SELECT u.id_usuario, u.id_institucion, i.nombre AS institucion_nombre,
+                   u.nombre, u.apellido, u.email, u.rol, u.estado, u.genero,
+                   u.correo_verificado, u.fecha_creacion,
+                   (SELECT count(*)::integer FROM curso c WHERE c.id_docente = u.id_usuario) AS total_cursos,
+                   (SELECT count(*)::integer FROM matricula m
+                     WHERE m.id_estudiante = u.id_usuario AND m.estado = 'activa') AS total_matriculas
+              FROM usuario u
+              LEFT JOIN institucion i ON i.id_institucion = u.id_institucion
+             WHERE ($1::text IS NULL OR u.rol = $1)
+               AND ($2::text IS NULL OR u.estado = $2)
+               AND ($3::uuid IS NULL OR u.id_institucion = $3)
+               AND ($4::text IS NULL OR u.email ILIKE $4
+                    OR concat_ws(' ', u.nombre, u.apellido) ILIKE $4)
+             ORDER BY u.fecha_creacion DESC
+             LIMIT 500;
+        `, [role, status, institution, term === null ? null : `%${term}%`]);
+
+        return res.json({ success: true, total: result.rowCount, data: result.rows });
+    } catch (error) {
+        return next(error);
+    }
+};
+
+/**
+ * Listado administrativo de instituciones con dominios y métricas
+ * GET /api/auth/admin/instituciones
+ */
+const getAdminInstituciones = async (req, res, next) => {
+    try {
+        const result = await query(`
+            SELECT i.id_institucion, i.nombre, i.codigo_licencia, i.estado, i.fecha_creacion,
+                   (SELECT count(*)::integer FROM usuario u WHERE u.id_institucion = i.id_institucion) AS total_usuarios,
+                   (SELECT count(*)::integer FROM curso c WHERE c.id_institucion = i.id_institucion) AS total_cursos,
+                   COALESCE(json_agg(json_build_object(
+                       'id_institucion_dominio', d.id_institucion_dominio,
+                       'dominio', d.dominio,
+                       'estado', d.estado,
+                       'verificado_en', d.verificado_en
+                   ) ORDER BY d.dominio) FILTER (WHERE d.id_institucion_dominio IS NOT NULL), '[]'::json) AS dominios
+              FROM institucion i
+              LEFT JOIN institucion_dominio d ON d.id_institucion = i.id_institucion
+             GROUP BY i.id_institucion
+             ORDER BY i.nombre ASC;
+        `);
+        return res.json({ success: true, total: result.rowCount, data: result.rows });
+    } catch (error) {
+        return next(error);
+    }
+};
+
 const getPendingTeachers = async (req, res, next) => {
     try {
         const result = await query(`
@@ -243,17 +315,17 @@ const updateUserStatus = async (req, res, next) => {
         const result = await client.query(`
             UPDATE usuario
             SET estado = $1,
-                token_version = CASE WHEN $1 = 'inactivo' THEN token_version + 1 ELSE token_version END
-            WHERE id_usuario = $2 AND rol = 'docente'
+                token_version = CASE WHEN $2::text = 'inactivo' THEN token_version + 1 ELSE token_version END
+            WHERE id_usuario = $3 AND rol IN ('docente', 'estudiante')
             RETURNING id_usuario, id_institucion, nombre, apellido, email, rol, genero, estado;
-        `, [estado, id_usuario]);
+        `, [estado, estado, id_usuario]);
 
         if (result.rowCount === 0) {
             await client.query('ROLLBACK');
             transactionStarted = false;
             return res.status(404).json({
                 success: false,
-                message: 'Docente no encontrado.'
+                message: 'Usuario no encontrado o no gestionable.'
             });
         }
 
@@ -272,7 +344,7 @@ const updateUserStatus = async (req, res, next) => {
 
         return res.json({
             success: true,
-            message: `Estado del docente actualizado a ${estado}.`,
+            message: `Estado del usuario actualizado a ${estado}.`,
             user: result.rows[0]
         });
     } catch (error) {
@@ -289,6 +361,8 @@ module.exports = {
     getMe,
     updateMe,
     getInstituciones,
+    getUsuarios,
+    getAdminInstituciones,
     getPendingTeachers,
     updateUserStatus,
     generateToken

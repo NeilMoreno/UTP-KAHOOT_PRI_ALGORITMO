@@ -29,6 +29,18 @@ router.post('/logout-all', authenticateJWT, identityController.logoutAll);
 // Listado de instituciones activas
 router.get('/instituciones', authController.getInstituciones);
 
+// Listado administrativo de usuarios e instituciones
+router.get('/usuarios',
+    authenticateJWT,
+    authorizeRoles('superadministrador'),
+    authController.getUsuarios
+);
+router.get('/admin/instituciones',
+    authenticateJWT,
+    authorizeRoles('superadministrador'),
+    authController.getAdminInstituciones
+);
+
 router.get('/docentes/pendientes',
     authenticateJWT,
     authorizeRoles('superadministrador'),

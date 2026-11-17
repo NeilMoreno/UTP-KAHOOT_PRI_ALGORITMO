@@ -261,9 +261,9 @@ $$\text{puntaje} = \text{round}\left( \text{puntos\_base} \times \left( 1 - \fra
   - [ ] *Carga de Sílabos:* Formulario de subida de PDF con procesamiento simulado o real de IA para generar nuevos mundos.
   - [ ] *Analíticas Académicas:* Gráficos de distribución de errores frecuentes y rendimiento grupal.
 - [ ] **Vistas del Superadministrador:**
-  - Gestión de instituciones educativas y códigos de licencia.
-  - Aprobación y activación de docentes registrados.
-  - Monitoreo del consumo de tokens y asignación de cuotas.
+  - [ ] Gestión de instituciones educativas y códigos de licencia.
+  - [x] Aprobación y activación de docentes registrados.
+  - [x] Monitoreo del consumo de tokens y asignación de cuotas.
 
 ### Fase 6: Pruebas, Refactorización y Empaquetado
 - [ ] Pruebas de integración de la base de datos con scripts SQL.

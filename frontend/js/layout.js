@@ -19,7 +19,11 @@ const NAV_BY_ROLE = {
         { href: '#/perfil', label: 'Mi cuenta', icon: 'shield', match: (path) => path === '/perfil' }
     ],
     superadministrador: [
-        { href: '#/', label: 'Panel', icon: 'home', match: () => true },
+        { href: '#/', label: 'Panel', icon: 'home', match: (path) => path === '/' },
+        { href: '#/admin/usuarios', label: 'Usuarios', icon: 'user', match: (path) => path === '/admin/usuarios' },
+        { href: '#/admin/invitaciones', label: 'Invitaciones', icon: 'bolt', match: (path) => path === '/admin/invitaciones' },
+        { href: '#/admin/instituciones', label: 'Instituciones', icon: 'brand', match: (path) => path === '/admin/instituciones' },
+        { href: '#/admin/cuotas', label: 'Cuotas IA', icon: 'sparkles', match: (path) => path === '/admin/cuotas' },
         { href: '#/perfil', label: 'Mi cuenta', icon: 'shield', match: (path) => path === '/perfil' }
     ]
 };
@@ -37,6 +41,10 @@ const titleForPath = (path) => {
     if (path.startsWith('/jugar/')) return 'Sala en vivo';
     if (path === '/salas') return 'Salas Kahoot';
     if (path.startsWith('/salas/')) return 'Sala en vivo';
+    if (path === '/admin/usuarios') return 'Usuarios';
+    if (path === '/admin/invitaciones') return 'Invitaciones';
+    if (path === '/admin/instituciones') return 'Instituciones';
+    if (path === '/admin/cuotas') return 'Cuotas de IA';
     if (path === '/cursos') return 'Mis cursos';
     if (path.startsWith('/cursos/')) return 'Gestión del curso';
     if (path.startsWith('/mundos/')) return 'Ejercicios del mundo';

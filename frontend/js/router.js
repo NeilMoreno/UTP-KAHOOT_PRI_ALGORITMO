@@ -19,7 +19,11 @@ const ROUTES = [
     { path: '/cursos/:id', roles: ['docente', 'superadministrador'], load: () => import('./views/teacher/course.js') },
     { path: '/mundos/:id', roles: ['docente', 'superadministrador'], load: () => import('./views/teacher/world.js') },
     { path: '/salas', roles: ['docente', 'superadministrador'], load: () => import('./views/teacher/salas.js') },
-    { path: '/salas/:pin', roles: ['docente', 'superadministrador'], load: () => import('./views/teacher/host.js') }
+    { path: '/salas/:pin', roles: ['docente', 'superadministrador'], load: () => import('./views/teacher/host.js') },
+    { path: '/admin/usuarios', roles: ['superadministrador'], load: () => import('./views/admin/users.js') },
+    { path: '/admin/invitaciones', roles: ['superadministrador'], load: () => import('./views/admin/invitations.js') },
+    { path: '/admin/instituciones', roles: ['superadministrador'], load: () => import('./views/admin/institutions.js') },
+    { path: '/admin/cuotas', roles: ['superadministrador'], load: () => import('./views/admin/quotas.js') }
 ];
 
 const compile = (path) => {
