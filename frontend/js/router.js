@@ -13,9 +13,13 @@ const ROUTES = [
     { path: '/curso/:id', roles: ['estudiante'], load: () => import('./views/student/worlds.js') },
     { path: '/mundo/:id', roles: ['estudiante'], load: () => import('./views/student/exercises.js') },
     { path: '/ejercicio/:id', roles: ['estudiante'], load: () => import('./views/student/workspace.js') },
+    { path: '/jugar', roles: ['estudiante'], load: () => import('./views/student/play.js') },
+    { path: '/jugar/:pin', roles: ['estudiante'], load: () => import('./views/student/play-room.js') },
     { path: '/cursos', roles: ['docente', 'superadministrador'], load: () => import('./views/teacher/courses.js') },
     { path: '/cursos/:id', roles: ['docente', 'superadministrador'], load: () => import('./views/teacher/course.js') },
-    { path: '/mundos/:id', roles: ['docente', 'superadministrador'], load: () => import('./views/teacher/world.js') }
+    { path: '/mundos/:id', roles: ['docente', 'superadministrador'], load: () => import('./views/teacher/world.js') },
+    { path: '/salas', roles: ['docente', 'superadministrador'], load: () => import('./views/teacher/salas.js') },
+    { path: '/salas/:pin', roles: ['docente', 'superadministrador'], load: () => import('./views/teacher/host.js') }
 ];
 
 const compile = (path) => {
@@ -83,6 +87,7 @@ export function startRouter({ host, onRender }) {
             }
         } catch (error) {
             if (token !== renderToken) return;
+            console.error(`[router] No se pudo cargar la vista ${path}`, error);
             clear(root).append(h('div', { class: 'container narrow' },
                 h('div', { class: 'card' },
                     h('h2', {}, 'No pudimos cargar esta pantalla'),

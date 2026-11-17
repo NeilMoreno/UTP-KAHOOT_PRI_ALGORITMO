@@ -8,12 +8,14 @@ const NAV_BY_ROLE = {
             href: '#/', label: 'Centro de misiones', icon: 'home',
             match: (path) => path === '/' || path.startsWith('/curso') || path.startsWith('/mundo') || path.startsWith('/ejercicio')
         },
+        { href: '#/jugar', label: 'Jugar', icon: 'play', match: (path) => path === '/jugar' || path.startsWith('/jugar/') },
         { href: '#/personajes', label: 'Personajes', icon: 'user', match: (path) => path === '/personajes' },
         { href: '#/perfil', label: 'Mi cuenta', icon: 'shield', match: (path) => path === '/perfil' }
     ],
     docente: [
         { href: '#/', label: 'Panel', icon: 'home', match: (path) => path === '/' },
         { href: '#/cursos', label: 'Cursos', icon: 'brand', match: (path) => path === '/cursos' || path.startsWith('/cursos/') || path.startsWith('/mundos/') },
+        { href: '#/salas', label: 'Salas Kahoot', icon: 'play', match: (path) => path === '/salas' || path.startsWith('/salas/') },
         { href: '#/perfil', label: 'Mi cuenta', icon: 'shield', match: (path) => path === '/perfil' }
     ],
     superadministrador: [
@@ -31,6 +33,10 @@ const ROLE_LABEL = {
 const titleForPath = (path) => {
     if (path === '/perfil') return 'Mi cuenta';
     if (path === '/personajes') return 'Personajes';
+    if (path === '/jugar') return 'Jugar';
+    if (path.startsWith('/jugar/')) return 'Sala en vivo';
+    if (path === '/salas') return 'Salas Kahoot';
+    if (path.startsWith('/salas/')) return 'Sala en vivo';
     if (path === '/cursos') return 'Mis cursos';
     if (path.startsWith('/cursos/')) return 'Gestión del curso';
     if (path.startsWith('/mundos/')) return 'Ejercicios del mundo';

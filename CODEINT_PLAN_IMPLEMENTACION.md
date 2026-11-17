@@ -6,7 +6,7 @@ Fecha de diagnóstico: 14 de noviembre de 2026.
 
 Proyecto: `C:\xampp\htdocs\kahoot`.
 
-Estado del plan: bloques 1, 2 y 4 completados; el siguiente bloque de implementación es el 6 (interfaces Kahoot), según la decisión de priorizar la demostración.
+Estado del plan: bloques 1, 2, 4 y 6 completados; el siguiente bloque de implementación es el 3A (panel del superadministrador).
 
 ## 1. Objetivo
 
@@ -256,32 +256,43 @@ Objetivo: completar una partida multijugador con interfaces de docente y estudia
 
 #### 6A. Docente anfitrión
 
-- [ ] Crear formulario de preguntas, opciones, tiempos y puntuación.
-- [ ] Crear o abrir una sala con las APIs y eventos existentes.
-- [ ] Mostrar PIN, participantes y estado de conexión.
-- [ ] Iniciar partida y controlar el avance de preguntas.
-- [ ] Mostrar cronómetro sincronizado con el servidor y conteo de respuestas.
-- [ ] Mostrar estadísticas, ranking y podio final.
-- [ ] Recuperar el control de la sala tras reconexión.
+- [x] Crear formulario de preguntas, opciones, tiempos y puntuación.
+- [x] Crear o abrir una sala con las APIs y eventos existentes.
+- [x] Mostrar PIN, participantes y estado de conexión.
+- [x] Iniciar partida y controlar el avance de preguntas.
+- [x] Mostrar cronómetro sincronizado con el servidor y conteo de respuestas.
+- [x] Mostrar estadísticas, ranking y podio final.
+- [x] Recuperar el control de la sala tras reconexión.
 
 #### 6B. Estudiante participante
 
-- [ ] Entrar mediante PIN y apodo.
-- [ ] Mostrar lobby y estado de conexión.
-- [ ] Mostrar preguntas y botones táctiles accesibles para responder.
-- [ ] Mostrar recepción de respuesta sin revelar anticipadamente el acierto.
-- [ ] Mostrar resultado, posición y XP al recibir los eventos correspondientes.
-- [ ] Recuperar estado tras reconexión.
-- [ ] Gestionar sala cancelada, sesión reemplazada y docente desconectado.
+- [x] Entrar mediante PIN y apodo.
+- [x] Mostrar lobby y estado de conexión.
+- [x] Mostrar preguntas y botones táctiles accesibles para responder.
+- [x] Mostrar recepción de respuesta sin revelar anticipadamente el acierto.
+- [x] Mostrar resultado, posición y XP al recibir los eventos correspondientes.
+- [x] Recuperar estado tras reconexión.
+- [x] Gestionar sala cancelada, sesión reemplazada y docente desconectado.
 
 #### 6C. Integración
 
-- [ ] Cargar el cliente Socket.IO de forma compatible con la CSP.
-- [ ] Autenticar conexiones con el JWT y limpiar suscripciones al salir de la vista.
-- [ ] Verificar que no se exponga la respuesta correcta antes del cierre de la pregunta.
-- [ ] Integrar acceso a las salas en la navegación de cada rol.
+- [x] Cargar el cliente Socket.IO de forma compatible con la CSP.
+- [x] Autenticar conexiones con el JWT y limpiar suscripciones al salir de la vista.
+- [x] Verificar que no se exponga la respuesta correcta antes del cierre de la pregunta.
+- [x] Integrar acceso a las salas en la navegación de cada rol.
 
 Restricción operativa: una sola instancia del servidor. Las salas activas se coordinan en memoria; el arranque cancela salas persistidas que quedaron activas y no pueden recuperarse desde esa memoria.
+
+Estado: **completado el 2026-11-17**.
+
+Evidencia:
+- Nuevo cliente `frontend/js/socket.js` que importa el bundle ESM servido por el backend (`/socket.io/socket.io.esm.min.js`) y autentica con el JWT de `sessionStorage`.
+- Vistas docentes `salas.js` (listado, historial y constructor de preguntas) y `host.js` (lobby, PIN, participantes, cuenta regresiva, pregunta, estadísticas, podio y reconexión con `room:host`).
+- Vistas estudiantes `play.js` (PIN, apodo y salas activas) y `play-room.js` (lobby, pregunta, respuesta, resultado, podio, reconexión, sesión reemplazada y sala cancelada). El XP de la barra superior se refresca al recibir el podio.
+- Rutas `#/salas`, `#/salas/:pin`, `#/jugar` y `#/jugar/:pin`, con navegación por rol y estilos de botones táctiles, cronómetro y podio.
+- La respuesta correcta solo se revela en `question:results` (docente) y `answer:result` (estudiante); las preguntas no incluyen `es_correcta`.
+- Prueba de interfaz con Chrome headless: login docente y estudiante, creación de sala, lobby, inicio, pregunta, respuesta, estadísticas, podio e historial con detalle. Sin errores de consola.
+- `npm test`: 52 pruebas, 0 fallos, 5 omitidas. Las integraciones `teacher-content` y `kahoot-realtime` se ejecutaron por separado y pasaron.
 
 Referencias: `backend/routes/salaRoutes.js`, `backend/services/salaService.js`, `backend/sockets/kahootHandler.js`, `PHASE4_KAHOOT_RUNBOOK.md`.
 

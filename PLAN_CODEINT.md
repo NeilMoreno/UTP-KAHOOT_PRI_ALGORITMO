@@ -253,13 +253,13 @@ $$\text{puntaje} = \text{round}\left( \text{puntos\_base} \times \left( 1 - \fra
   - [x] *Dashboard del Alumno:* Tarjeta de nivel actual, barra de progreso a siguiente nivel, contador de XP, selector de cursos.
   - [x] *Mapa de Mundos:* Interfaz visual interactiva con los 7 mundos temáticos, caminos iluminados, iconos distintivos y candados de estado.
   - [x] *Workspace de Ejercicios PSeInt:* Editor de código con resaltado, botón de validación sintáctica, botón de envío a IA, modal con retroalimentación animada de Gemini.
-  - [ ] *Lobby y Partida Kahoot (Móvil):* Pantalla de ingreso de PIN, botones gigantes táctiles (Triángulo rojo, Rombo azul, Círculo amarillo, Cuadrado verde) y pantalla de resultados con animación de puntos.
+  - [x] *Lobby y Partida Kahoot (Móvil):* Pantalla de ingreso de PIN, botones gigantes táctiles (Triángulo rojo, Rombo azul, Círculo amarillo, Cuadrado verde) y pantalla de resultados con animación de puntos.
 - [ ] **Vistas del Docente:**
-  - *Panel de Control:* Resumen de cursos activos, estudiantes matriculados y promedio de avance.
-  - *Gestor de Cursos y Matrículas:* Creación de cursos, listado de estudiantes y botón para cargar CSV masivo.
-  - *Host de Salas Kahoot (Pantalla Gigante):* Proyección del PIN gigante, lista de alumnos uniéndose en tiempo real, proyección de la pregunta con contador regresivo animado, gráficos de barras con las respuestas elegidas y podio olímpico con confeti.
-  - *Carga de Sílabos:* Formulario de subida de PDF con procesamiento simulado o real de IA para generar nuevos mundos.
-  - *Analíticas Académicas:* Gráficos de distribución de errores frecuentes y rendimiento grupal.
+  - [x] *Panel de Control:* Resumen de cursos activos, estudiantes matriculados y promedio de avance.
+  - [x] *Gestor de Cursos y Matrículas:* Creación de cursos, listado de estudiantes y botón para cargar CSV masivo.
+  - [x] *Host de Salas Kahoot (Pantalla Gigante):* Proyección del PIN gigante, lista de alumnos uniéndose en tiempo real, proyección de la pregunta con contador regresivo animado, gráficos de barras con las respuestas elegidas y podio olímpico con confeti.
+  - [ ] *Carga de Sílabos:* Formulario de subida de PDF con procesamiento simulado o real de IA para generar nuevos mundos.
+  - [ ] *Analíticas Académicas:* Gráficos de distribución de errores frecuentes y rendimiento grupal.
 - [ ] **Vistas del Superadministrador:**
   - Gestión de instituciones educativas y códigos de licencia.
   - Aprobación y activación de docentes registrados.

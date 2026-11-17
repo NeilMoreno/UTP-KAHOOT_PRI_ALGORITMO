@@ -51,6 +51,14 @@ Todas requieren `Authorization: Bearer <JWT>`.
 
 `puntaje = round(puntos_base × (1 − tiempo / (2 × límite)))`, 0 si es incorrecta o fuera de tiempo. Desempate: menor tiempo total de respuesta. XP al cerrar: 1.º 150, 2.º 100, 3.º 50, resto 20, siempre que hayan respondido al menos una pregunta. XP, posiciones y logros se guardan en una sola transacción; el XP no se duplica (`uq_xp_por_participante_sala`). Participar en una partida desbloquea los logros de `partidas_participadas`.
 
+## Interfaz web
+
+- Docente: `#/salas` lista y crea salas con su cuestionario; `#/salas/:pin` abre el lobby, inicia la partida, controla las preguntas y muestra estadísticas y podio. La vista emite `room:host` al cargar y al reconectar.
+- Estudiante: `#/jugar` muestra el PIN, el apodo y las salas abiertas de sus cursos; `#/jugar/:pin` permite unirse, responder y ver el resultado y el podio. La vista emite `room:join` al entrar y al reconectar.
+- El cliente se carga con `import('/socket.io/socket.io.esm.min.js')` desde `frontend/js/socket.js`, compatible con la CSP del backend, y usa el JWT de `sessionStorage`.
+- Las respuestas del estudiante solo confirman `{ recibido: true }`; el acierto y el puntaje llegan en `answer:result` al cerrar la pregunta.
+- Al salir de la vista se desconecta el socket y se eliminan sus listeners. Una segunda pestaña del mismo estudiante recibe `room:replaced`.
+
 ## Operación
 
 - El estado de las salas vive en memoria: **una sola instancia del servidor**. Al arrancar, las salas que seguían `espera`/`en_curso` se cancelan.

@@ -14,6 +14,7 @@ const STATUS_TONE = {
     pendiente: '',
     bloqueado: '',
     en_progreso: 'blue',
+    en_curso: 'blue',
     espera: 'blue',
     procesando: 'ai'
 };
@@ -28,7 +29,9 @@ const STATUS_LABEL = {
     bloqueado: 'Bloqueado',
     en_progreso: 'En progreso',
     completado: 'Completado',
+    en_curso: 'En curso',
     espera: 'En espera',
+    finalizando: 'Finalizando',
     finalizada: 'Finalizada',
     cancelada: 'Cancelada',
     procesando: 'Procesando'
