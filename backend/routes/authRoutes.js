@@ -69,6 +69,21 @@ router.patch('/admin/invitations/:id_invitacion/revoke',
     authorizeRoles('superadministrador'),
     identityController.revokeInvitation
 );
+router.post('/admin/instituciones',
+    authenticateJWT,
+    authorizeRoles('superadministrador'),
+    authController.createInstitucion
+);
+router.put('/admin/instituciones/:id_institucion',
+    authenticateJWT,
+    authorizeRoles('superadministrador'),
+    authController.updateInstitucion
+);
+router.patch('/admin/instituciones/:id_institucion/estado',
+    authenticateJWT,
+    authorizeRoles('superadministrador'),
+    authController.updateInstitucionStatus
+);
 router.post('/admin/instituciones/:id_institucion/dominios',
     authenticateJWT,
     authorizeRoles('superadministrador'),

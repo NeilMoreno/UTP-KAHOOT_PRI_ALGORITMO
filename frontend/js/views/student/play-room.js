@@ -425,7 +425,7 @@ export default async function playRoomView({ root, params, user }) {
             const code = error?.message;
             const authCodes = new Set([
                 'AUTHENTICATION_REQUIRED', 'INVALID_TOKEN', 'TOKEN_EXPIRED',
-                'SESSION_REVOKED', 'ACCOUNT_NOT_ACTIVE'
+                'SESSION_REVOKED', 'ACCOUNT_NOT_ACTIVE', 'INSTITUTION_INACTIVE'
             ]);
             if (authCodes.has(code)) renderFatal(connectErrorMessage(error));
             else setStatus('No se pudo conectar. Reintentando automáticamente…', 'warn');

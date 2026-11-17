@@ -37,7 +37,7 @@ const loadUserFromToken = async (token) => {
     const sql = `
         SELECT u.id_usuario, u.id_institucion, u.nombre, u.apellido, u.email, u.rol, u.genero, u.estado,
                u.correo_verificado, u.token_version,
-               i.nombre AS institucion_nombre
+               i.nombre AS institucion_nombre, i.estado AS institucion_estado
         FROM usuario u
         LEFT JOIN institucion i ON i.id_institucion = u.id_institucion
         WHERE u.id_usuario = $1
@@ -64,6 +64,14 @@ const loadUserFromToken = async (token) => {
             403,
             `La cuenta de usuario se encuentra en estado "${user.estado}". Contacte al administrador.`,
             'ACCOUNT_NOT_ACTIVE'
+        );
+    }
+
+    if (user.id_institucion && user.institucion_estado !== 'activa') {
+        throw httpError(
+            403,
+            'La institución asociada a su cuenta está inactiva. Contacte al administrador.',
+            'INSTITUTION_INACTIVE'
         );
     }
 

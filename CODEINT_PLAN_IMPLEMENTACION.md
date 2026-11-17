@@ -6,7 +6,7 @@ Fecha de diagnóstico: 14 de noviembre de 2026.
 
 Proyecto: `C:\xampp\htdocs\kahoot`.
 
-Estado del plan: bloques 1, 2, 3A, 4 y 6 completados; el siguiente bloque de implementación es el 8 (analíticas académicas).
+Estado del plan: bloques 1, 2, 3A, 3B, 4 y 6 completados; el siguiente bloque de implementación es el 8 (analíticas académicas).
 
 ## 1. Objetivo
 
@@ -184,13 +184,22 @@ Dependencias: bloque 3A.
 
 Objetivo: completar la gestión multiinstitucional.
 
-- [ ] Definir los campos editables y el comportamiento de activación e inactivación.
-- [ ] Implementar los endpoints faltantes de creación, edición y cambio de estado de instituciones.
-- [ ] Incorporar gestión de códigos de licencia como datos de la institución, sin utilizarlos para autorizar registros.
-- [ ] Crear las pantallas correspondientes y conectarlas con dominios e invitaciones.
-- [ ] Verificar autorización y efectos del estado institucional sobre los flujos existentes.
+- [x] Definir los campos editables y el comportamiento de activación e inactivación.
+- [x] Implementar los endpoints faltantes de creación, edición y cambio de estado de instituciones.
+- [x] Incorporar gestión de códigos de licencia como datos de la institución, sin utilizarlos para autorizar registros.
+- [x] Crear las pantallas correspondientes y conectarlas con dominios e invitaciones.
+- [x] Verificar autorización y efectos del estado institucional sobre los flujos existentes.
 
 Situación inicial: se encontró consulta de instituciones y gestión de dominios, pero no un CRUD completo de instituciones.
+
+Estado: **completado el 2026-11-17**.
+
+Evidencia:
+- Nuevos endpoints `POST /api/auth/admin/instituciones`, `PUT /api/auth/admin/instituciones/:id` y `PATCH /api/auth/admin/instituciones/:id/estado`, solo para superadministrador.
+- Campos editables: `nombre`, `codigo_licencia` y `estado`. El código de licencia es informativo y no autoriza registros.
+- Inactivar una institución revoca las sesiones de sus usuarios, bloquea el login y los tokens existentes, y evita nuevas invitaciones, cursos y dominios. Al reactivarla se puede volver a iniciar sesión.
+- La vista de instituciones permite crear, editar, activar/inactivar, agregar dominios y activarlos. Se corrigió una inferencia de tipos de PostgreSQL (`42P08`) al cambiar el estado de un dominio.
+- Verificación API del ciclo completo con una institución y un docente temporales; prueba headless de la interfaz de instituciones con alta, edición, dominio e inactivación. Datos temporales eliminados.
 
 Verificación: crear otra institución, configurar dominio e invitar usuarios sin permitir acceso cruzado a recursos académicos.
 

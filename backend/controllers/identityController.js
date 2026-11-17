@@ -526,10 +526,10 @@ const updateInstitutionDomainStatus = async (req, res, next) => {
         const result = await client.query(`
             UPDATE institucion_dominio
                SET estado = $1,
-                   verificado_en = CASE WHEN $1 = 'activo' THEN COALESCE(verificado_en, now()) ELSE verificado_en END
-             WHERE id_institucion_dominio = $2
+                   verificado_en = CASE WHEN $2::text = 'activo' THEN COALESCE(verificado_en, now()) ELSE verificado_en END
+             WHERE id_institucion_dominio = $3
             RETURNING id_institucion_dominio, id_institucion, dominio, estado, verificado_en;
-        `, [status, domainId]);
+        `, [status, status, domainId]);
         if (result.rowCount === 0) {
             await client.query('ROLLBACK');
             transactionStarted = false;

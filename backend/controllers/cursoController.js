@@ -172,6 +172,17 @@ const createCurso = async (req, res, next) => {
             });
         }
 
+        const institution = await query(
+            'SELECT estado FROM institucion WHERE id_institucion = $1 LIMIT 1;',
+            [id_institucion]
+        );
+        if (institution.rowCount === 0 || institution.rows[0].estado !== 'activa') {
+            return res.status(400).json({
+                success: false,
+                message: 'La institución debe estar activa para crear cursos.'
+            });
+        }
+
         if (user.rol === 'superadministrador') {
             const teacher = await query(
                 `SELECT id_usuario FROM usuario

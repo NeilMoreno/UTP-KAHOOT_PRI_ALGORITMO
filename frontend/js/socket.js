@@ -35,6 +35,7 @@ export const CONNECT_ERROR_MESSAGES = {
     TOKEN_EXPIRED: 'Tu sesión expiró. Inicia sesión de nuevo.',
     SESSION_REVOKED: 'Tu sesión fue cerrada. Inicia sesión de nuevo.',
     ACCOUNT_NOT_ACTIVE: 'Tu cuenta no está activa. Contacta a tu docente.',
+    INSTITUTION_INACTIVE: 'La institución de tu cuenta está inactiva. Contacta a la administración.',
     AUTH_UNAVAILABLE: 'No se pudo validar tu sesión. Intenta de nuevo en unos segundos.'
 };
 

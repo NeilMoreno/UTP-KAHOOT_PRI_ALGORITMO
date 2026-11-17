@@ -49,7 +49,7 @@ const register = registerByInvitation;
         const userSql = `
             SELECT u.id_usuario, u.id_institucion, u.nombre, u.apellido, u.email,
                    u.password_hash, u.rol, u.genero, u.estado, u.correo_verificado, u.token_version,
-                   i.nombre AS institucion_nombre
+                   i.nombre AS institucion_nombre, i.estado AS institucion_estado
             FROM usuario u
             LEFT JOIN institucion i ON i.id_institucion = u.id_institucion
             WHERE lower(u.email) = $1
@@ -83,6 +83,14 @@ const register = registerByInvitation;
                 message: 'Debe verificar su correo antes de iniciar sesión.'
             });
         }
+
+        if (user.id_institucion && user.institucion_estado !== 'activa') {
+            return res.status(403).json({
+                success: false,
+                message: 'La institución asociada a su cuenta está inactiva. Comuníquese con la administración.'
+            });
+        }
+
         const token = generateToken(user);
         await query('UPDATE usuario SET ultimo_acceso = now() WHERE id_usuario = $1;', [user.id_usuario]);
 
@@ -280,6 +288,222 @@ const getAdminInstituciones = async (req, res, next) => {
     }
 };
 
+/**
+ * Crear una institución (solo superadministrador)
+ * POST /api/auth/admin/instituciones
+ */
+const createInstitucion = async (req, res, next) => {
+    const client = await getClient();
+    let transactionStarted = false;
+    try {
+        const nombre = cleanString(req.body?.nombre, { min: 3, max: 150 });
+        const licencia = cleanString(req.body?.codigo_licencia, { min: 3, max: 80 });
+        const estado = req.body?.estado === undefined
+            ? 'activa'
+            : cleanString(req.body.estado, { min: 6, max: 8, lower: true });
+
+        if (!nombre || !licencia || !['activa', 'inactiva'].includes(estado)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Nombre, código de licencia o estado no válidos.'
+            });
+        }
+
+        await client.query('BEGIN');
+        transactionStarted = true;
+        const result = await client.query(`
+            INSERT INTO institucion (nombre, codigo_licencia, estado)
+            VALUES ($1, $2, $3)
+            RETURNING id_institucion, nombre, codigo_licencia, estado, fecha_creacion;
+        `, [nombre, licencia, estado]);
+        const institution = result.rows[0];
+
+        await recordSecurityEvent(client, {
+            actorId: req.user.id_usuario,
+            institutionId: institution.id_institucion,
+            action: 'INSTITUCION_CREADA',
+            targetType: 'institucion',
+            targetId: institution.id_institucion,
+            result: 'exitoso',
+            ip: getRequestIp(req),
+            metadata: { estado }
+        });
+
+        await client.query('COMMIT');
+        transactionStarted = false;
+        return res.status(201).json({
+            success: true,
+            message: 'Institución creada correctamente.',
+            data: institution
+        });
+    } catch (error) {
+        if (transactionStarted) await client.query('ROLLBACK').catch(() => {});
+        if (error.code === '23505') {
+            return res.status(409).json({
+                success: false,
+                message: 'Ya existe una institución con ese nombre o código de licencia.'
+            });
+        }
+        if (error.code === '23514') {
+            return res.status(400).json({ success: false, message: error.message });
+        }
+        next(error);
+    } finally {
+        client.release();
+    }
+};
+
+/**
+ * Editar nombre, licencia y estado de una institución
+ * PUT /api/auth/admin/instituciones/:id_institucion
+ */
+const updateInstitucion = async (req, res, next) => {
+    const client = await getClient();
+    let transactionStarted = false;
+    try {
+        const institutionId = req.params.id_institucion;
+        const nombre = cleanString(req.body?.nombre, { min: 3, max: 150 });
+        const licencia = cleanString(req.body?.codigo_licencia, { min: 3, max: 80 });
+        const requestedState = req.body?.estado === undefined
+            ? null
+            : cleanString(req.body.estado, { min: 6, max: 8, lower: true });
+
+        if (!isUuid(institutionId) || !nombre || !licencia || (requestedState !== null && !['activa', 'inactiva'].includes(requestedState))) {
+            return res.status(400).json({
+                success: false,
+                message: 'Institución, nombre, código de licencia o estado no válidos.'
+            });
+        }
+
+        await client.query('BEGIN');
+        transactionStarted = true;
+        const current = await client.query(
+            'SELECT id_institucion, estado FROM institucion WHERE id_institucion = $1 FOR UPDATE;',
+            [institutionId]
+        );
+        if (current.rowCount === 0) {
+            await client.query('ROLLBACK');
+            transactionStarted = false;
+            return res.status(404).json({ success: false, message: 'Institución no encontrada.' });
+        }
+
+        const nextState = requestedState || current.rows[0].estado;
+        const result = await client.query(`
+            UPDATE institucion
+               SET nombre = $1, codigo_licencia = $2, estado = $3
+             WHERE id_institucion = $4
+             RETURNING id_institucion, nombre, codigo_licencia, estado, fecha_creacion;
+        `, [nombre, licencia, nextState, institutionId]);
+        const institution = result.rows[0];
+
+        if (nextState === 'inactiva' && current.rows[0].estado !== 'inactiva') {
+            await client.query(
+                'UPDATE usuario SET token_version = token_version + 1 WHERE id_institucion = $1;',
+                [institutionId]
+            );
+        }
+
+        await recordSecurityEvent(client, {
+            actorId: req.user.id_usuario,
+            institutionId,
+            action: 'INSTITUCION_ACTUALIZADA',
+            targetType: 'institucion',
+            targetId: institutionId,
+            result: 'exitoso',
+            ip: getRequestIp(req),
+            metadata: { estado: nextState }
+        });
+
+        await client.query('COMMIT');
+        transactionStarted = false;
+        return res.json({
+            success: true,
+            message: 'Institución actualizada correctamente.',
+            data: institution
+        });
+    } catch (error) {
+        if (transactionStarted) await client.query('ROLLBACK').catch(() => {});
+        if (error.code === '23505') {
+            return res.status(409).json({
+                success: false,
+                message: 'Ya existe una institución con ese nombre o código de licencia.'
+            });
+        }
+        if (error.code === '23514') {
+            return res.status(400).json({ success: false, message: error.message });
+        }
+        next(error);
+    } finally {
+        client.release();
+    }
+};
+
+/**
+ * Activar o inactivar una institución
+ * PATCH /api/auth/admin/instituciones/:id_institucion/estado
+ */
+const updateInstitucionStatus = async (req, res, next) => {
+    const client = await getClient();
+    let transactionStarted = false;
+    try {
+        const institutionId = req.params.id_institucion;
+        const estado = cleanString(req.body?.estado, { min: 6, max: 8, lower: true });
+        if (!isUuid(institutionId) || !['activa', 'inactiva'].includes(estado)) {
+            return res.status(400).json({ success: false, message: 'Institución o estado no válido.' });
+        }
+
+        await client.query('BEGIN');
+        transactionStarted = true;
+        const current = await client.query(
+            'SELECT id_institucion, estado FROM institucion WHERE id_institucion = $1 FOR UPDATE;',
+            [institutionId]
+        );
+        if (current.rowCount === 0) {
+            await client.query('ROLLBACK');
+            transactionStarted = false;
+            return res.status(404).json({ success: false, message: 'Institución no encontrada.' });
+        }
+
+        const result = await client.query(`
+            UPDATE institucion
+               SET estado = $1
+             WHERE id_institucion = $2
+             RETURNING id_institucion, nombre, codigo_licencia, estado, fecha_creacion;
+        `, [estado, institutionId]);
+
+        if (estado === 'inactiva' && current.rows[0].estado !== 'inactiva') {
+            await client.query(
+                'UPDATE usuario SET token_version = token_version + 1 WHERE id_institucion = $1;',
+                [institutionId]
+            );
+        }
+
+        await recordSecurityEvent(client, {
+            actorId: req.user.id_usuario,
+            institutionId,
+            action: 'INSTITUCION_ESTADO_ACTUALIZADO',
+            targetType: 'institucion',
+            targetId: institutionId,
+            result: 'exitoso',
+            ip: getRequestIp(req),
+            metadata: { estado }
+        });
+
+        await client.query('COMMIT');
+        transactionStarted = false;
+        return res.json({
+            success: true,
+            message: `Institución ${estado === 'activa' ? 'activada' : 'inactivada'} correctamente.`,
+            data: result.rows[0]
+        });
+    } catch (error) {
+        if (transactionStarted) await client.query('ROLLBACK').catch(() => {});
+        next(error);
+    } finally {
+        client.release();
+    }
+};
+
 const getPendingTeachers = async (req, res, next) => {
     try {
         const result = await query(`
@@ -363,6 +587,9 @@ module.exports = {
     getInstituciones,
     getUsuarios,
     getAdminInstituciones,
+    createInstitucion,
+    updateInstitucion,
+    updateInstitucionStatus,
     getPendingTeachers,
     updateUserStatus,
     generateToken
