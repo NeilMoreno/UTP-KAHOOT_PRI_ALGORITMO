@@ -6,7 +6,7 @@ Fecha de diagnóstico: 14 de noviembre de 2026.
 
 Proyecto: `C:\xampp\htdocs\kahoot`.
 
-Estado del plan: bloques 1, 2, 3A, 3B, 4, 6 y 8 completados; quedan los bloques 5 (Gemini real), 7 (sílabos) y 9 (cierre y entrega).
+Estado del plan: bloques 1, 2, 3A, 3B, 4, 6 y 8 completados; bloque 9 en curso. Los bloques 5 (Gemini real) y 7 (sílabos) quedan bloqueados por la clave real de Gemini y por decisiones de producto.
 
 ## 1. Objetivo
 
@@ -376,16 +376,25 @@ Dependencias: todos los bloques comprometidos para la entrega.
 
 Objetivo: entregar una aplicación reproducible y demostrable.
 
-- [ ] Ejecutar las suites existentes y corregir fallos.
+- [x] Ejecutar las suites existentes y corregir fallos.
 - [ ] Ejecutar integración con PostgreSQL sobre una base separada.
-- [ ] Completar pruebas de permisos entre roles, cursos e instituciones.
+- [x] Completar pruebas de permisos entre roles, cursos e instituciones.
 - [ ] Acordar la cantidad objetivo de participantes y probar concurrencia y reconexión.
 - [ ] Verificar escritorio, móvil, teclado, foco y mensajes de error.
 - [ ] Documentar API REST y eventos Socket.IO.
-- [ ] Actualizar `PLAN_CODEINT.md` y runbooks con el estado real.
-- [ ] Preparar datos y guion de demostración.
+- [x] Actualizar `PLAN_CODEINT.md` y runbooks con el estado real.
+- [x] Preparar datos y guion de demostración.
 - [ ] Verificar instalación desde cero y restauración de la base de entrega.
-- [ ] Revisar los archivos preparados, modificados y sin seguimiento antes de organizar la entrega en Git.
+- [x] Revisar los archivos preparados, modificados y sin seguimiento antes de organizar la entrega en Git.
+
+Estado: **en curso**. La entrega se definió como demostración local; el despliegue público queda fuera de alcance.
+
+Evidencia:
+- `RUN_DB_TESTS=1 npm test`: 54 pruebas, 0 fallos, 0 omitidas.
+- `npm run db:audit` sin hallazgos y `npm run test:db` exitoso.
+- Guion de demostración en [`DEMO_GUION.md`](DEMO_GUION.md).
+- Permisos verificados en pruebas de integración y recorridos headless para docente, estudiante, superadministrador, instituciones inactivas y analíticas.
+- Pendientes: integración sobre una base separada, revisión visual/accesible en navegador real, documentación REST completa, concurrencia acordada e instalación desde cero/restauración.
 
 #### Si la entrega incluye publicación en Internet
 
@@ -413,9 +422,9 @@ Un bloque no se considera terminado solo por tener archivos o pantallas: debe cu
 
 ## 7. Decisiones pendientes
 
-- [ ] Confirmar si la entrega es una demostración local o un despliegue público.
+- [x] Confirmar si la entrega es una demostración local o un despliegue público. → Demostración local; el despliegue público queda fuera de alcance.
 - [ ] Confirmar cantidad objetivo de participantes simultáneos para la sala.
-- [ ] Confirmar si se exige un intérprete PSeInt o basta el flujo de validación básica y evaluación IA previsto.
+- [x] Confirmar si se exige un intérprete PSeInt o basta el flujo de validación básica y evaluación IA previsto. → Validación sintáctica y evaluación con IA, sin intérprete.
 - [x] Elegir cómo se carga el catálogo base de ejercicios en cursos nuevos. → Catálogo en `backend/config/baseContent.js`, copiado por `createCurso`, replicado en seeds y con script de sincronización idempotente.
 - [ ] Definir revisión e incorporación de contenido generado desde sílabos y su relación con los siete mundos.
 

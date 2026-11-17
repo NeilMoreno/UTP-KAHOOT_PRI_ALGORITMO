@@ -6,6 +6,13 @@ Plataforma EdTech gamificada para aprender algoritmos en PSeInt, con evaluación
 - Backend: Node.js, Express, Socket.IO y PostgreSQL.
 - Estado y plan de cierre: [`CODEINT_PLAN_IMPLEMENTACION.md`](CODEINT_PLAN_IMPLEMENTACION.md).
 
+## Funcionalidad disponible
+
+- **Estudiante:** centro de misiones, mapa de 7 mundos, editor PSeInt, validación sintáctica, evaluación con IA, XP, niveles, logros y salas Kahoot desde el móvil.
+- **Docente:** panel, cursos con contenido base, matrícula individual y CSV, edición de ejercicios, host de salas Kahoot y analíticas por curso, estudiante, errores y salas.
+- **Superadministrador:** usuarios, invitaciones, instituciones y dominios, licencias y cuotas de IA con consumo por docente.
+- **Recorrido sugerido:** [`DEMO_GUION.md`](DEMO_GUION.md).
+
 ## Requisitos
 
 - Node.js 22 o superior.
