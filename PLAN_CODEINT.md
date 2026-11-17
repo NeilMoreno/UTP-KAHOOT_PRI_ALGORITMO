@@ -259,7 +259,7 @@ $$\text{puntaje} = \text{round}\left( \text{puntos\_base} \times \left( 1 - \fra
   - [x] *Gestor de Cursos y Matrículas:* Creación de cursos, listado de estudiantes y botón para cargar CSV masivo.
   - [x] *Host de Salas Kahoot (Pantalla Gigante):* Proyección del PIN gigante, lista de alumnos uniéndose en tiempo real, proyección de la pregunta con contador regresivo animado, gráficos de barras con las respuestas elegidas y podio olímpico con confeti.
   - [ ] *Carga de Sílabos:* Formulario de subida de PDF con procesamiento simulado o real de IA para generar nuevos mundos.
-  - [ ] *Analíticas Académicas:* Gráficos de distribución de errores frecuentes y rendimiento grupal.
+  - [x] *Analíticas Académicas:* Gráficos de distribución de errores frecuentes y rendimiento grupal.
 - [x] **Vistas del Superadministrador:**
   - [x] Gestión de instituciones educativas y códigos de licencia.
   - [x] Aprobación y activación de docentes registrados.

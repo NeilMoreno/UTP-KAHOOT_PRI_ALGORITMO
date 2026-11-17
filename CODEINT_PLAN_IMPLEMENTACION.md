@@ -6,7 +6,7 @@ Fecha de diagnóstico: 14 de noviembre de 2026.
 
 Proyecto: `C:\xampp\htdocs\kahoot`.
 
-Estado del plan: bloques 1, 2, 3A, 3B, 4 y 6 completados; el siguiente bloque de implementación es el 8 (analíticas académicas).
+Estado del plan: bloques 1, 2, 3A, 3B, 4, 6 y 8 completados; quedan los bloques 5 (Gemini real), 7 (sílabos) y 9 (cierre y entrega).
 
 ## 1. Objetivo
 
@@ -348,14 +348,23 @@ Dependencias: bloques 4, 5 y 6.
 
 Objetivo: facilitar seguimiento del avance y de las dificultades de los estudiantes.
 
-- [ ] Implementar consultas y endpoints de rendimiento por curso.
-- [ ] Mostrar avance por estudiante y mundo.
-- [ ] Mostrar ejercicios aprobados, intentos y resultados.
-- [ ] Resumir categorías de error de las evaluaciones.
-- [ ] Mostrar resultados históricos de salas.
-- [ ] Mostrar consumo IA del docente reutilizando las APIs existentes donde corresponda.
-- [ ] Añadir filtros pertinentes y estados sin datos.
-- [ ] Asegurar consultas autorizadas y coherencia entre tablas, gráficos y detalle.
+- [x] Implementar consultas y endpoints de rendimiento por curso.
+- [x] Mostrar avance por estudiante y mundo.
+- [x] Mostrar ejercicios aprobados, intentos y resultados.
+- [x] Resumir categorías de error de las evaluaciones.
+- [x] Mostrar resultados históricos de salas.
+- [x] Mostrar consumo IA del docente reutilizando las APIs existentes donde corresponda.
+- [x] Añadir filtros pertinentes y estados sin datos.
+- [x] Asegurar consultas autorizadas y coherencia entre tablas, gráficos y detalle.
+
+Estado: **completado el 2026-11-17**.
+
+Evidencia:
+- Nuevo módulo `/api/analiticas` con resumen de cursos, detalle por curso y detalle por estudiante; protegido para docentes y superadministradores y aislado con `getAuthorizedCourse`.
+- Agregados de estudiantes, avance por mundo, ejercicios aprobados, envíos, promedios, categorías de error y últimas 20 salas del curso.
+- Vistas `teacher/analytics.js` y `teacher/analytics-course.js` con filtros de curso, pestañas de mundos, estudiantes, errores y salas, detalle de estudiante y consumo IA reutilizando `/api/ia/consumo`.
+- Verificación headless con datos sintéticos: avance, promedio, errores, envíos, salas y consumo. Los datos se eliminaron y el progreso se restauró.
+- Prueba de integración `analytics.integration.test.js` ejecutada y aprobada.
 
 Verificación: comparar agregados con registros de referencia y comprobar que un docente no acceda a cursos ajenos.
 

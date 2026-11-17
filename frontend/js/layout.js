@@ -16,6 +16,7 @@ const NAV_BY_ROLE = {
         { href: '#/', label: 'Panel', icon: 'home', match: (path) => path === '/' },
         { href: '#/cursos', label: 'Cursos', icon: 'brand', match: (path) => path === '/cursos' || path.startsWith('/cursos/') || path.startsWith('/mundos/') },
         { href: '#/salas', label: 'Salas Kahoot', icon: 'play', match: (path) => path === '/salas' || path.startsWith('/salas/') },
+        { href: '#/analiticas', label: 'Analíticas', icon: 'trophy', match: (path) => path === '/analiticas' || path.startsWith('/analiticas/') },
         { href: '#/perfil', label: 'Mi cuenta', icon: 'shield', match: (path) => path === '/perfil' }
     ],
     superadministrador: [
@@ -41,6 +42,8 @@ const titleForPath = (path) => {
     if (path.startsWith('/jugar/')) return 'Sala en vivo';
     if (path === '/salas') return 'Salas Kahoot';
     if (path.startsWith('/salas/')) return 'Sala en vivo';
+    if (path === '/analiticas') return 'Analíticas';
+    if (path.startsWith('/analiticas/')) return 'Analíticas del curso';
     if (path === '/admin/usuarios') return 'Usuarios';
     if (path === '/admin/invitaciones') return 'Invitaciones';
     if (path === '/admin/instituciones') return 'Instituciones';

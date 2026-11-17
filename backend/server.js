@@ -25,6 +25,7 @@ const ejercicioRoutes = require('./routes/ejercicioRoutes');
 const aiRoutes = require('./routes/aiRoutes');
 const salaRoutes = require('./routes/salaRoutes');
 const gamificacionRoutes = require('./routes/gamificacionRoutes');
+const analyticsRoutes = require('./routes/analyticsRoutes');
 const { setupKahootSockets } = require('./sockets/kahootHandler');
 const { cancelOrphanRooms } = require('./services/salaService');
 
@@ -70,6 +71,7 @@ app.use('/api/ejercicios', ejercicioRoutes);
 app.use('/api/ia', aiRoutes);
 app.use('/api/salas', salaRoutes);
 app.use('/api/gamificacion', gamificacionRoutes);
+app.use('/api/analiticas', analyticsRoutes);
 
 // Manejador de rutas no encontradas (404)
 app.use(notFoundHandler);
