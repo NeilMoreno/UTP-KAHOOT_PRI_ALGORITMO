@@ -4,6 +4,7 @@ import { state } from './state.js';
 
 const ROUTES = [
     { path: '/inicio', public: true, load: () => import('./views/landing.js') },
+    { path: '/terminos', public: true, load: () => import('./views/terms.js') },
     { path: '/login', public: true, load: () => import('./views/login.js') },
     { path: '/registro', public: true, load: () => import('./views/register.js') },
     { path: '/recuperar-password', public: true, load: () => import('./views/forgot-password.js') },

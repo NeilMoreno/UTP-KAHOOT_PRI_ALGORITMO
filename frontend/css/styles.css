@@ -860,6 +860,27 @@ h3 { font-size: 1rem; }
 .pw-match.is-ok { color: var(--positive); }
 @media (max-width: 480px) { .pw-bars { width: 96px; } }
 
+/* Registro: casillas y términos */
+.check { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 10px; align-items: start; margin: 4px 0 12px; color: var(--muted); font-size: .92rem; cursor: pointer; }
+.check input { width: 20px; height: 20px; margin-top: 2px; accent-color: var(--primary); }
+.check[hidden] { display: none; }
+.hint.is-error { color: var(--negative); font-weight: 700; }
+.legal-page { width: min(100% - 32px, 760px); margin: 0 auto; padding: 32px 0 64px; display: grid; gap: 14px; }
+.legal-section { padding: 18px 20px; border-radius: var(--radius-control); background: var(--surface); box-shadow: 0 0 0 2px var(--border); }
+.legal-section h2 { font-size: 1.15rem; margin-bottom: 8px; }
+.legal-section ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; color: var(--muted); }
+
+/* Perfil demográfico */
+.demo-list { list-style: none; margin: 14px 0; padding: 0; display: grid; gap: 10px; }
+.demo-row { display: grid; grid-template-columns: 150px minmax(0, 1fr) 56px; gap: 4px 12px; align-items: center; }
+.demo-label { font-weight: 700; }
+.demo-bar { height: 14px; border-radius: 8px; background: var(--raised); box-shadow: inset 0 0 0 2px var(--border); overflow: hidden; }
+.demo-bar > span { display: block; height: 100%; width: var(--value, 0%); border-radius: inherit; background: var(--accent-strong); }
+.demo-value { text-align: right; font-variant-numeric: tabular-nums; }
+.demo-split { grid-column: 2 / 4; color: var(--faint); }
+.demo-row.is-hidden .demo-label { color: var(--muted); }
+@media (max-width: 640px) { .demo-row { grid-template-columns: 1fr 56px; } .demo-bar { grid-column: 1 / 3; } .demo-split { grid-column: 1 / 3; } }
+
 /* Landing pública */
 .landing { min-height: 100dvh; display: grid; grid-template-rows: auto 1fr auto; background: radial-gradient(1200px 500px at 80% -10%, var(--accent-soft), transparent 70%), var(--ground); }
 .landing-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: min(100%, 1160px); margin: 0 auto; padding: 18px 20px; }

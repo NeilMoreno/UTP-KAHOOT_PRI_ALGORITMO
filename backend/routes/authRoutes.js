@@ -24,6 +24,8 @@ router.post('/password/reset', authLimiter, identityController.resetPassword);
 router.get('/me', authenticateJWT, authController.getMe);
 router.patch('/me', authenticateJWT, authController.updateMe);
 router.patch('/me/avatar', authenticateJWT, authController.updateAvatar);
+router.patch('/me/nacimiento', authenticateJWT, authController.completeBirthDate);
+router.post('/me/terminos', authenticateJWT, authController.acceptTerms);
 router.patch('/password', authenticateJWT, authLimiter, identityController.changePassword);
 router.post('/logout-all', authenticateJWT, identityController.logoutAll);
 

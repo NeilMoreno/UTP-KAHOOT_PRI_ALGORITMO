@@ -1,6 +1,7 @@
 import { h, icon, skeleton, errorMessage, formatNumber, formatDate, toast } from '../../ui.js';
 import { api } from '../../api.js';
 import { confirmModal, statusAction } from './helpers.js';
+import { demographicsPanel } from './demographics.js';
 
 const statCard = (label, value, detail) => h('div', { class: 'stat-card' },
     h('span', {}, label),
@@ -37,6 +38,7 @@ export default async function adminDashboard({ root, user }) {
                 quickLink('#/admin/usuarios', 'Gestionar usuarios', 'Consulta cuentas, roles y estados.', 'shield'),
                 quickLink('#/admin/instituciones', 'Instituciones y dominios', 'Activa dominios para habilitar registros.', 'brand'),
                 quickLink('#/admin/cuotas', 'Cuotas de IA', 'Asigna tokens y revisa el consumo docente.', 'sparkles'))),
+        demographicsPanel(),
         h('section', { class: 'section-block' },
             h('div', { class: 'section-heading' },
                 h('h2', {}, 'Docentes pendientes'),

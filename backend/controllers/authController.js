@@ -9,6 +9,7 @@ const { getEstudianteGamificationSummary } = require('../services/gamificationSe
 const { generateToken } = require('../services/tokenService');
 const { normalizeAvatar, lockedParts, resolveAvatar } = require('../utils/avatarCatalog');
 const { getMissionUnlocks } = require('../services/missionService');
+const { validateBirthDate, calculateAge, ADULT_AGE, TERMS_VERSION } = require('../utils/age');
 const { getRequestIp, recordSecurityEvent } = require('../services/securityAuditService');
 const { registerByInvitation } = require('./identityController');
 const {
@@ -22,6 +23,15 @@ const {
 } = require('../utils/validation');
 
 const avatarOf = (user) => resolveAvatar(user.avatar_config, user.id_usuario);
+
+// Datos de perfil propios: la fecha solo se entrega a su dueño; el resto de la app trabaja con la edad.
+const profileOf = (user) => ({
+    fecha_nacimiento: user.fecha_nacimiento || null,
+    edad: user.fecha_nacimiento ? calculateAge(user.fecha_nacimiento) : null,
+    terminos_aceptados_en: user.terminos_aceptados_en || null,
+    terminos_version: user.terminos_version || null,
+    terminos_vigentes: user.terminos_version === TERMS_VERSION
+});
 
 const DUMMY_BCRYPT_HASH = '$2b$12$KIXxP9z4XG9jEIt8hWfO5.4W4P5sP9D2gXbXFlJ8WqP0YwXGQxH6K';
 
@@ -54,6 +64,8 @@ const register = registerByInvitation;
             SELECT u.id_usuario, u.id_institucion, u.nombre, u.apellido, u.email,
                    u.password_hash, u.rol, u.genero, u.estado, u.correo_verificado, u.token_version,
                    u.avatar_config,
+                   to_char(u.fecha_nacimiento, 'YYYY-MM-DD') AS fecha_nacimiento,
+                   u.terminos_aceptados_en, u.terminos_version,
                    i.nombre AS institucion_nombre, i.estado AS institucion_estado
             FROM usuario u
             LEFT JOIN institucion i ON i.id_institucion = u.id_institucion
@@ -121,6 +133,7 @@ const register = registerByInvitation;
                 estado: user.estado,
                 correo_verificado: user.correo_verificado,
                 avatar: avatarOf(user),
+                ...profileOf(user),
                 gamification
             }
         });
@@ -156,6 +169,7 @@ const getMe = async (req, res, next) => {
                 estado: user.estado,
                 correo_verificado: user.correo_verificado,
                 avatar: avatarOf(user),
+                ...profileOf(user),
                 gamification
             }
         });
@@ -192,6 +206,59 @@ const updateAvatar = async (req, res, next) => {
         return res.json({ success: true, avatar });
     } catch (error) {
         next(error);
+    }
+};
+
+/**
+ * Completa la fecha de nacimiento (solo si aún no existe; después solo la administración puede cambiarla).
+ * PATCH /api/auth/me/nacimiento
+ */
+const completeBirthDate = async (req, res, next) => {
+    try {
+        if (req.user.fecha_nacimiento) {
+            return res.status(409).json({ success: false, error: 'BIRTH_DATE_ALREADY_SET', message: 'Tu fecha de nacimiento ya está registrada. Para cambiarla, contacta a la administración.' });
+        }
+        const birth = validateBirthDate(req.body?.fecha_nacimiento);
+        if (!birth.ok) return res.status(birth.status).json({ success: false, error: birth.code, message: birth.message });
+        const minor = birth.age < ADULT_AGE;
+        if (minor && req.body?.consentimiento_tutor !== true) {
+            return res.status(400).json({ success: false, error: 'GUARDIAN_CONSENT_REQUIRED', message: 'Si eres menor de 18 años, tu apoderado o tutor debe autorizar el uso de la plataforma.' });
+        }
+        // La condición "IS NULL" evita pisar una fecha registrada en paralelo.
+        const updated = await query(
+            `UPDATE usuario
+                SET fecha_nacimiento = $1::date,
+                    consentimiento_tutor_en = CASE WHEN $3::boolean THEN now() ELSE consentimiento_tutor_en END
+              WHERE id_usuario = $2 AND fecha_nacimiento IS NULL
+              RETURNING to_char(fecha_nacimiento, 'YYYY-MM-DD') AS fecha_nacimiento;`,
+            [birth.fecha, req.user.id_usuario, minor]
+        );
+        if (updated.rowCount === 0) {
+            return res.status(409).json({ success: false, error: 'BIRTH_DATE_ALREADY_SET', message: 'Tu fecha de nacimiento ya está registrada.' });
+        }
+        return res.json({ success: true, message: 'Fecha de nacimiento guardada.', ...profileOf({ ...req.user, fecha_nacimiento: updated.rows[0].fecha_nacimiento }) });
+    } catch (error) {
+        return next(error);
+    }
+};
+
+/**
+ * Acepta los términos vigentes (para cuentas creadas antes de que existieran).
+ * POST /api/auth/me/terminos
+ */
+const acceptTerms = async (req, res, next) => {
+    try {
+        if (req.body?.acepta_terminos !== true) {
+            return res.status(400).json({ success: false, error: 'TERMS_REQUIRED', message: 'Debes aceptar los términos y la política de privacidad.' });
+        }
+        const updated = await query(
+            `UPDATE usuario SET terminos_aceptados_en = now(), terminos_version = $1
+              WHERE id_usuario = $2 RETURNING terminos_aceptados_en, terminos_version;`,
+            [TERMS_VERSION, req.user.id_usuario]
+        );
+        return res.json({ success: true, message: 'Términos aceptados.', ...profileOf({ ...req.user, ...updated.rows[0] }) });
+    } catch (error) {
+        return next(error);
     }
 };
 
@@ -623,6 +690,8 @@ module.exports = {
     getMe,
     updateMe,
     updateAvatar,
+    completeBirthDate,
+    acceptTerms,
     avatarOf,
     getInstituciones,
     getUsuarios,

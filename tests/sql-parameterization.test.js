@@ -151,7 +151,9 @@ test('el alta deriva correo, rol e institución de una invitación bloqueada y p
             apellido: 'Seguro',
             email: 'atacante@evil.example',
             password: 'ClaveSegura2026',
-            genero: 'masculino'
+            genero: 'masculino',
+            acepta_terminos: true,
+            fecha_nacimiento: '1985-03-10'
         }
     }, res, error => { throw error; });
 
@@ -166,6 +168,11 @@ test('el alta deriva correo, rol e institución de una invitación bloqueada y p
     assert.equal(insert.params[5], 'docente');
     assert.equal(insert.params[6], 'masculino');
     assert.equal(insert.params.includes('atacante@evil.example'), false);
+    // Datos de perfil: fecha parametrizada, versión de términos vigente y sin consentimiento de tutor (adulto).
+    assert.equal(insert.params[7], '1985-03-10');
+    assert.equal(insert.params[8], '2026-11');
+    assert.equal(insert.params[9], false);
+    assert.equal(/\$8::date/.test(insert.sql), true, 'la fecha viaja como parámetro, nunca concatenada');
     assert.equal(auditCalls[0].action, 'REGISTRO_POR_INVITACION');
     assert.equal(released, true);
 });

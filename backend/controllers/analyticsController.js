@@ -9,6 +9,7 @@ const { query } = require('../config/database');
 const { getAuthorizedCourse } = require('../services/authorizationService');
 const { httpError } = require('../utils/httpError');
 const { isUuid } = require('../utils/validation');
+const { getDemographics } = require('../services/demographicsService');
 
 const roundFloat = (expression) => `ROUND(COALESCE(${expression}, 0)::numeric, 2)::float8`;
 
@@ -320,7 +321,24 @@ const getStudentDetail = async (req, res, next) => {
     }
 };
 
+/**
+ * Perfil demográfico agregado de los estudiantes (solo superadministrador)
+ * GET /api/analiticas/demografia?id_institucion=
+ */
+const getDemographicsSummary = async (req, res, next) => {
+    try {
+        const institution = req.query.id_institucion || null;
+        if (institution !== null && !isUuid(institution)) {
+            return next(httpError(400, 'El identificador de la institución no es válido.', 'INVALID_ID'));
+        }
+        return res.json({ success: true, ...(await getDemographics({ query }, institution)) });
+    } catch (error) {
+        return next(error);
+    }
+};
+
 module.exports = {
+    getDemographicsSummary,
     getCoursesSummary,
     getCourseDetail,
     getStudentDetail

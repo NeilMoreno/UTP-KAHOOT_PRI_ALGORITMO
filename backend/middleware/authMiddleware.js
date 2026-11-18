@@ -37,6 +37,8 @@ const loadUserFromToken = async (token) => {
     const sql = `
         SELECT u.id_usuario, u.id_institucion, u.nombre, u.apellido, u.email, u.rol, u.genero, u.estado,
                u.correo_verificado, u.token_version, u.avatar_config,
+               to_char(u.fecha_nacimiento, 'YYYY-MM-DD') AS fecha_nacimiento,
+               u.terminos_aceptados_en, u.terminos_version,
                i.nombre AS institucion_nombre, i.estado AS institucion_estado
         FROM usuario u
         LEFT JOIN institucion i ON i.id_institucion = u.id_institucion

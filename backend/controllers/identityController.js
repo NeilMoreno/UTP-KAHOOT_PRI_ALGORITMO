@@ -17,6 +17,7 @@ const {
 } = require('../utils/securityTokens');
 const { generateToken } = require('../services/tokenService');
 const { passwordProblems } = require('../utils/passwordPolicy');
+const { validateRegistrationProfile, TERMS_VERSION } = require('../utils/age');
 const {
     buildInvitationUrl,
     buildPasswordResetUrl,
@@ -109,6 +110,18 @@ const registerByInvitation = async (req, res, next) => {
             transactionStarted = false;
             return weakPasswordResponse(res, contextProblems);
         }
+        // Términos (todos), fecha de nacimiento (estudiantes) y consentimiento de apoderado (menores de 18).
+        const profile = validateRegistrationProfile({
+            rol: invitation.rol,
+            fecha_nacimiento: body.fecha_nacimiento,
+            acepta_terminos: body.acepta_terminos,
+            consentimiento_tutor: body.consentimiento_tutor
+        });
+        if (!profile.ok) {
+            await client.query('ROLLBACK');
+            transactionStarted = false;
+            return res.status(profile.status).json({ success: false, error: profile.code, message: profile.message });
+        }
         if (invitation.estado !== 'pendiente') {
             await client.query('ROLLBACK');
             transactionStarted = false;
@@ -167,10 +180,17 @@ const registerByInvitation = async (req, res, next) => {
                 estado,
                 correo_verificado,
                 correo_verificado_en,
-                password_actualizada_en
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'activo', true, now(), now())
+                password_actualizada_en,
+                fecha_nacimiento,
+                terminos_aceptados_en,
+                terminos_version,
+                consentimiento_tutor_en
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'activo', true, now(), now(),
+                      $8::date, now(), $9, CASE WHEN $10::boolean THEN now() ELSE NULL END)
             RETURNING id_usuario, id_institucion, nombre, apellido, email, rol, genero,
-                      estado, correo_verificado, token_version, fecha_creacion;
+                      estado, correo_verificado, token_version, fecha_creacion,
+                      to_char(fecha_nacimiento, 'YYYY-MM-DD') AS fecha_nacimiento,
+                      terminos_aceptados_en, terminos_version;
         `, [
             invitation.id_institucion,
             nombre,
@@ -178,7 +198,10 @@ const registerByInvitation = async (req, res, next) => {
             invitation.email,
             passwordHash,
             invitation.rol,
-            genero
+            genero,
+            profile.fecha,
+            profile.terminosVersion,
+            profile.tutor
         ]);
 
         const newUser = userResult.rows[0];
@@ -196,7 +219,7 @@ const registerByInvitation = async (req, res, next) => {
             targetId: newUser.id_usuario,
             result: 'exitoso',
             ip: getRequestIp(req),
-            metadata: { rol: newUser.rol }
+            metadata: { rol: newUser.rol, edad_registrada: profile.age !== null, menor_con_tutor: profile.tutor }
         });
 
         await client.query('COMMIT');
@@ -245,7 +268,7 @@ const inspectInvitation = async (req, res, next) => {
         if (result.rowCount === 0) {
             return res.status(404).json({ success: false, message: 'La invitación no está disponible.' });
         }
-        return res.json({ success: true, invitation: result.rows[0] });
+        return res.json({ success: true, invitation: result.rows[0], terminos_version: TERMS_VERSION });
     } catch (error) {
         return next(error);
     }

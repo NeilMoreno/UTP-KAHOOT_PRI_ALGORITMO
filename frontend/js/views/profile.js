@@ -3,6 +3,7 @@ import { api, tokenStore } from '../api.js';
 import { state, logout } from '../state.js';
 import { navigate } from '../router.js';
 import { createPasswordField, createPasswordConfirm } from '../password-field.js';
+import { birthDateLimits, checkBirthDate } from '../age.js';
 
 const ROLE_LABEL = {
     estudiante: 'Estudiante',
@@ -66,6 +67,79 @@ const buildProfileForm = (user) => {
     field('genero', 'Género', genero, 'Se usa para dirigirnos a ti correctamente.'),
     errorBox,
     h('div', { class: 'form-actions' }, submit));
+};
+
+// Fecha de nacimiento y términos. La fecha, una vez registrada, solo la cambia la administración.
+const buildPrivacyPanel = (user) => {
+    const host = h('div', { class: 'stack' });
+    const render = () => {
+        const current = state.user || user;
+        const rows = [];
+        const accepted = current.terminos_aceptados_en
+            ? `Aceptados el ${new Date(current.terminos_aceptados_en).toLocaleDateString('es-PE')} (versión ${current.terminos_version})`
+            : 'Aún no los aceptaste';
+        rows.push(h('div', { class: 'info-list' },
+            infoRow('Fecha de nacimiento', current.fecha_nacimiento ? `${current.fecha_nacimiento} · ${current.edad} años` : 'Sin registrar'),
+            infoRow('Términos y privacidad', accepted)));
+
+        if (!current.fecha_nacimiento) {
+            const limits = birthDateLimits();
+            const date = h('input', { class: 'input', id: 'perfil-nacimiento', type: 'date', min: limits.min, max: limits.max });
+            const info = h('span', { class: 'hint', 'aria-live': 'polite' }, 'Se guarda una sola vez; luego solo la administración puede cambiarla.');
+            const tutor = h('input', { type: 'checkbox', id: 'perfil-tutor' });
+            const tutorRow = h('label', { class: 'check', for: 'perfil-tutor', hidden: true }, tutor,
+                h('span', {}, 'Soy menor de 18 años y mi madre, padre o tutor autoriza que use codeInt.'));
+            const save = h('button', { class: 'btn', type: 'button', disabled: true }, 'Guardar fecha');
+            const sync = () => {
+                const status = checkBirthDate(date.value);
+                tutorRow.hidden = !(status.ok && status.minor);
+                if (tutorRow.hidden) tutor.checked = false;
+                info.className = `hint${status.message ? ' is-error' : ''}`;
+                info.textContent = status.message || (status.ok ? `Tienes ${status.age} años.` : 'Se guarda una sola vez; luego solo la administración puede cambiarla.');
+                save.disabled = !(status.ok && (!status.minor || tutor.checked));
+            };
+            date.addEventListener('input', sync);
+            tutor.addEventListener('change', sync);
+            save.addEventListener('click', async () => {
+                setBusy(save, true, 'Guardando…');
+                try {
+                    const response = await api('/auth/me/nacimiento', {
+                        method: 'PATCH',
+                        body: { fecha_nacimiento: date.value, consentimiento_tutor: tutor.checked ? true : undefined }
+                    });
+                    state.user = { ...state.user, fecha_nacimiento: response.fecha_nacimiento, edad: response.edad };
+                    toast(response.message, 'success');
+                    render();
+                } catch (error) {
+                    toast(errorMessage(error), 'error');
+                    setBusy(save, false);
+                }
+            });
+            rows.push(h('div', { class: 'alert info' }, 'Falta tu fecha de nacimiento: la usamos para calcular tu edad y para estadísticas agregadas.'),
+                field('perfil-nacimiento', 'Fecha de nacimiento', date, null), info, tutorRow, h('div', { class: 'form-actions' }, save));
+        }
+
+        if (!current.terminos_vigentes) {
+            const accept = h('button', { class: 'btn', type: 'button' }, 'Aceptar términos');
+            accept.addEventListener('click', async () => {
+                setBusy(accept, true, 'Guardando…');
+                try {
+                    const response = await api('/auth/me/terminos', { method: 'POST', body: { acepta_terminos: true } });
+                    state.user = { ...state.user, terminos_aceptados_en: response.terminos_aceptados_en, terminos_version: response.terminos_version, terminos_vigentes: true };
+                    toast(response.message, 'success');
+                    render();
+                } catch (error) {
+                    toast(errorMessage(error), 'error');
+                    setBusy(accept, false);
+                }
+            });
+            rows.push(h('p', { class: 'small' }, 'Lee los ', h('a', { href: '#/terminos', target: '_blank', rel: 'noopener' }, 'términos y la política de privacidad'), ' y acéptalos para seguir usando codeInt.'),
+                h('div', { class: 'form-actions' }, accept));
+        }
+        host.replaceChildren(...rows);
+    };
+    render();
+    return host;
 };
 
 const buildPasswordForm = () => {
@@ -188,6 +262,10 @@ export default async function profileView({ root, user }) {
                 h('h2', {}, 'Datos personales'),
                 h('p', { class: 'muted' }, 'Así aparecerás en el campus y en los rankings.'),
                 buildProfileForm(user)),
+            h('div', { class: 'card' },
+                h('h2', {}, 'Edad y privacidad'),
+                h('p', { class: 'muted' }, 'Tu fecha de nacimiento nunca se muestra a otros estudiantes.'),
+                buildPrivacyPanel(user)),
             h('div', { class: 'card' },
                 h('h2', {}, 'Contraseña'),
                 h('p', { class: 'muted' }, 'Al cambiarla se revocan las sesiones anteriores y se emite una nueva para este navegador.'),

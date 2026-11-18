@@ -9,6 +9,9 @@ const analyticsController = require('../controllers/analyticsController');
 const { authenticateJWT } = require('../middleware/authMiddleware');
 const { authorizeRoles } = require('../middleware/roleMiddleware');
 
+// Solo el superadministrador ve estadísticas de edad (se declara antes del filtro de docentes).
+router.get('/demografia', authenticateJWT, authorizeRoles('superadministrador'), analyticsController.getDemographicsSummary);
+
 router.use(authenticateJWT);
 router.use(authorizeRoles('docente', 'superadministrador'));
 
