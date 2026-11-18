@@ -1,6 +1,7 @@
 import { h, icon, clear } from './ui.js';
 import { state, logout, toggleTheme } from './state.js';
 import { navigate } from './router.js';
+import { createAvatar, getAvatarChoice } from './characters.js';
 
 const NAV_BY_ROLE = {
     estudiante: [
@@ -9,7 +10,8 @@ const NAV_BY_ROLE = {
             match: (path) => path === '/' || path.startsWith('/curso') || path.startsWith('/mundo') || path.startsWith('/ejercicio')
         },
         { href: '#/jugar', label: 'Jugar', icon: 'play', match: (path) => path === '/jugar' || path.startsWith('/jugar/') },
-        { href: '#/personajes', label: 'Personajes', icon: 'user', match: (path) => path === '/personajes' },
+        { href: '#/logros', label: 'Logros', icon: 'trophy', match: (path) => path === '/logros' || path.startsWith('/ranking/') },
+        { href: '#/personajes', label: 'Mi avatar', icon: 'user', match: (path) => path === '/personajes' },
         { href: '#/perfil', label: 'Mi cuenta', icon: 'shield', match: (path) => path === '/perfil' }
     ],
     docente: [
@@ -37,7 +39,9 @@ const ROLE_LABEL = {
 
 const titleForPath = (path) => {
     if (path === '/perfil') return 'Mi cuenta';
-    if (path === '/personajes') return 'Personajes';
+    if (path === '/personajes') return 'Mi avatar';
+    if (path === '/logros') return 'Logros';
+    if (path.startsWith('/ranking/')) return 'Ranking del curso';
     if (path === '/jugar') return 'Jugar';
     if (path.startsWith('/jugar/')) return 'Sala en vivo';
     if (path === '/salas') return 'Salas Kahoot';
@@ -49,6 +53,7 @@ const titleForPath = (path) => {
     if (path === '/admin/instituciones') return 'Instituciones';
     if (path === '/admin/cuotas') return 'Cuotas de IA';
     if (path === '/cursos') return 'Mis cursos';
+    if (path.endsWith('/silabo')) return 'Sílabo con IA';
     if (path.startsWith('/cursos/')) return 'Gestión del curso';
     if (path.startsWith('/mundos/')) return 'Ejercicios del mundo';
     if (path.startsWith('/ejercicio')) return 'Editor PSeInt';
@@ -95,7 +100,7 @@ export function renderChrome({ sidebar, topbar, currentPath }) {
             h('span', { class: 'side-label' }, user.rol === 'estudiante' ? 'Campus' : 'Gestión'),
             h('nav', { class: 'side-nav', 'aria-label': 'Principal' }, nav)),
         h('div', { class: 'side-account' },
-            h('span', { class: 'account-avatar', 'aria-hidden': 'true' }, (user.nombre || 'U').slice(0, 1).toUpperCase()),
+            createAvatar(getAvatarChoice(), { size: 38, label: `Avatar de ${user.nombre || 'usuario'}`, className: 'account-avatar' }),
             h('span', { class: 'account-copy' },
                 h('strong', {}, user.nombre),
                 h('small', {}, ROLE_LABEL[user.rol] || user.rol)))

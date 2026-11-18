@@ -63,8 +63,33 @@ export const emptyState = (title, detail) => h('div', { class: 'empty-state' },
 export const courseFormModal = ({ course = null, onSaved }) => {
     const editing = Boolean(course);
     const nombre = h('input', { class: 'input', id: 'curso-nombre', type: 'text', required: true, maxlength: 160, value: course?.nombre || '' });
-    const codigo = h('input', { class: 'input', id: 'curso-codigo', type: 'text', required: true, maxlength: 40, value: course?.codigo_curso || '', placeholder: 'ALPR-002' });
+    const codigo = h('input', {
+        class: 'input', id: 'curso-codigo', type: 'text', maxlength: 20, value: course?.codigo_curso || '',
+        placeholder: editing ? 'ALPR-002' : 'Automático', autocomplete: 'off'
+    });
+    // En un curso nuevo el código se sugiere desde el nombre; solo se envía si el docente lo escribe a mano.
+    const codeHint = h('span', { class: 'hint' }, editing ? '' : 'Se genera solo a partir del nombre. Puedes escribir uno propio.');
+    let codeTouched = false;
+    let suggestTimer = null;
+    codigo.addEventListener('input', () => { codeTouched = codigo.value.trim() !== ''; });
+    const refreshSuggestion = () => {
+        if (editing) return;
+        clearTimeout(suggestTimer);
+        suggestTimer = setTimeout(async () => {
+            const name = nombre.value.trim();
+            if (!name) { codeHint.textContent = 'Se genera solo a partir del nombre. Puedes escribir uno propio.'; return; }
+            try {
+                const query = new URLSearchParams({ nombre: name, periodo: periodo.value.trim() });
+                const { codigo: suggested } = await api(`/cursos/codigo-sugerido?${query}`);
+                if (!suggested) return;
+                codigo.placeholder = suggested;
+                if (!codeTouched) codeHint.textContent = `Código sugerido: ${suggested}`;
+            } catch { /* la sugerencia es opcional */ }
+        }, 350);
+    };
+    nombre.addEventListener('input', refreshSuggestion);
     const periodo = h('input', { class: 'input', id: 'curso-periodo', type: 'text', required: true, maxlength: 20, value: course?.periodo || '', placeholder: '2026-II' });
+    periodo.addEventListener('input', refreshSuggestion);
     const estado = editing
         ? h('select', { class: 'input', id: 'curso-estado' },
             h('option', { value: 'activo', selected: course.estado === 'activo' }, 'Activo'),
@@ -81,15 +106,16 @@ export const courseFormModal = ({ course = null, onSaved }) => {
 
             const payload = {
                 nombre: nombre.value.trim(),
-                codigo_curso: codigo.value.trim().toUpperCase(),
                 periodo: periodo.value.trim()
             };
+            const manualCode = codigo.value.trim().toUpperCase();
+            if (editing || manualCode) payload.codigo_curso = manualCode;
             if (editing) payload.estado = estado.value;
 
-            if (!payload.nombre || !payload.codigo_curso || !payload.periodo) {
+            if (!payload.nombre || !payload.periodo || (editing && !payload.codigo_curso)) {
                 errorBox.className = 'alert error';
                 errorBox.hidden = false;
-                errorBox.textContent = 'Completa el nombre, el código y el periodo del curso.';
+                errorBox.textContent = editing ? 'Completa el nombre, el código y el periodo del curso.' : 'Completa el nombre y el periodo del curso.';
                 return;
             }
 
@@ -111,7 +137,7 @@ export const courseFormModal = ({ course = null, onSaved }) => {
     },
     h('div', { class: 'form-grid' },
         h('div', { class: 'field' }, h('label', { for: 'curso-nombre' }, 'Nombre del curso'), nombre),
-        h('div', { class: 'field' }, h('label', { for: 'curso-codigo' }, 'Código'), codigo),
+        h('div', { class: 'field' }, h('label', { for: 'curso-codigo' }, 'Código'), codigo, codeHint),
         h('div', { class: 'field' }, h('label', { for: 'curso-periodo' }, 'Periodo'), periodo),
         estado ? h('div', { class: 'field' }, h('label', { for: 'curso-estado' }, 'Estado'), estado) : null),
     errorBox,
@@ -122,8 +148,8 @@ export const courseFormModal = ({ course = null, onSaved }) => {
     const close = openModal(h('div', {},
         h('div', { class: 'modal-head' }, h('h2', {}, editing ? 'Editar curso' : 'Nuevo curso')),
         editing
-            ? h('p', { class: 'muted small' }, 'Los siete mundos y sus ejercicios base no se modifican al editar el curso.')
-            : h('p', { class: 'muted small' }, 'Al crear el curso se generan los siete mundos con su contenido base y quedan listos para matricular estudiantes.'),
+            ? h('p', { class: 'muted small' }, 'Editar estos datos no cambia los mundos ni los ejercicios del curso.')
+            : h('p', { class: 'muted small' }, 'Al crear el curso se generan 7 mundos de práctica base. Luego puedes subir tu sílabo y que la IA los reemplace por contenido a tu medida.'),
         form), { label: editing ? 'Editar curso' : 'Nuevo curso' });
 
     nombre.focus();

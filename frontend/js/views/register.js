@@ -1,22 +1,20 @@
 import { h, setBusy, errorMessage } from '../ui.js';
 import { api } from '../api.js';
 import { navigate } from '../router.js';
+import { authShell } from './auth-shell.js';
 
 const PASSWORD_HINT = 'Mínimo 10 caracteres, con mayúsculas, minúsculas y números.';
 
 export default async function registerView({ root, query }) {
     document.title = 'Crear cuenta · codeInt';
 
-    const card = h('div', { class: 'card' });
-    root.append(h('div', { class: 'auth-wrap' },
-        h('div', { class: 'auth-card' },
-            h('div', { class: 'auth-logo' },
-                h('span', { class: 'brand-mark', 'aria-hidden': 'true' }, 'ci'),
-                h('h1', {}, 'Crear cuenta'),
-                h('p', { class: 'muted' }, 'El registro es solo por invitación institucional')),
-            card,
-            h('p', { class: 'small muted', style: { textAlign: 'center', marginTop: '16px' } },
-                h('a', { href: '#/login' }, 'Volver a iniciar sesión')))));
+    const card = h('div', { class: 'auth-form' });
+    root.append(authShell({
+        title: 'Crear cuenta',
+        subtitle: 'El registro es solo por invitación institucional.',
+        content: card,
+        footer: h('p', { class: 'auth-foot' }, h('a', { href: '#/login' }, 'Volver a iniciar sesión'))
+    }));
 
     const showTokenForm = (initial = '') => {
         const token = h('input', { class: 'input', id: 'token', value: initial, autocomplete: 'off', required: true });
@@ -41,8 +39,8 @@ export default async function registerView({ root, query }) {
             }
         },
         h('div', { class: 'field' },
-            h('label', { for: 'token' }, 'Código de invitación'), token,
-            h('span', { class: 'hint' }, 'Lo recibiste por correo de tu institución.')),
+            h('label', { for: 'token' }, 'Código de tu invitación'), token,
+            h('span', { class: 'hint' }, 'Está en el enlace del correo que te envió tu institución. Si abres el enlace, se completa solo.')),
         error, submit,
         h('p', { class: 'small muted', style: { textAlign: 'center', marginTop: '14px', marginBottom: 0 } },
             'Si el enlace venció o ya fue usado, solicita una nueva invitación a tu institución.')));

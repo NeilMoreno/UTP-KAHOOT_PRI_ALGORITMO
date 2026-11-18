@@ -4,6 +4,7 @@ import {
     createKahootSocket, emitAck, roomErrorMessage, connectErrorMessage
 } from '../../socket.js';
 import { statusChip } from './helpers.js';
+import { createAvatar } from '../../characters.js';
 
 const LABELS = ['A', 'B', 'C', 'D'];
 const MEDALS = ['🥇', '🥈', '🥉'];
@@ -33,6 +34,7 @@ export default async function hostView({ root, params }) {
     let totalPlayers = 0;
     let answeredCount = 0;
     let players = new Map();
+    const avatars = new Map();
     let screen = 'connecting';
     let timerInterval = null;
     let answersCountHost = null;
@@ -88,7 +90,7 @@ export default async function hostView({ root, params }) {
         return h('div', { class: 'lobby-players' },
             Array.from(players.entries()).map(([nick, connected]) => h('span', {
                 class: `player-chip ${connected ? '' : 'offline'}`.trim()
-            }, nick)));
+            }, createAvatar(avatars.get(nick), { size: 28, label: '' }), nick)));
     };
 
     const confirmFinish = () => {
@@ -236,7 +238,7 @@ export default async function hostView({ root, params }) {
 
     const rankingRow = (item, index, highlight = false) => h('li', { class: `ranking-row ${highlight ? 'is-me' : ''}`.trim() },
         h('span', { class: 'ranking-pos' }, item.puesto || item.posicion || index + 1),
-        h('span', { class: 'ranking-nick' }, item.nick),
+        h('span', { class: 'ranking-nick' }, createAvatar(item.avatar, { size: 32, label: '' }), item.nick),
         h('span', { class: 'ranking-points' }, `${formatNumber(item.puntaje)} pts`));
 
     const renderResults = (data) => {
@@ -295,6 +297,7 @@ export default async function hostView({ root, params }) {
         if (!participant) return h('div', { class: `podium-step ${place}` }, h('span', { class: 'muted small' }, '—'));
         return h('div', { class: `podium-step ${place}` },
             h('span', { class: 'medal' }, MEDALS[['first', 'second', 'third'].indexOf(place)] || '🏅'),
+            createAvatar(participant.avatar, { size: 64, label: '' }),
             h('strong', {}, participant.nick),
             h('small', {}, `${formatNumber(participant.puntaje)} pts`),
             participant.xpGanado !== undefined ? h('em', {}, `+${formatNumber(participant.xpGanado)} XP`) : null);
@@ -370,6 +373,7 @@ export default async function hostView({ root, params }) {
         if (snapshot.totalPreguntas) totalQuestions = snapshot.totalPreguntas;
         if (Array.isArray(snapshot.jugadores)) {
             players = new Map(snapshot.jugadores.map((player) => [player.nick, Boolean(player.conectado)]));
+            snapshot.jugadores.forEach((player) => { if (player.avatar) avatars.set(player.nick, player.avatar); });
         }
         totalPlayers = Math.max(totalPlayers, players.size);
 
@@ -458,6 +462,7 @@ export default async function hostView({ root, params }) {
 
         socket.on('player:joined', (data) => {
             players.set(data.nick, true);
+            if (data.avatar) avatars.set(data.nick, data.avatar);
             totalPlayers = Number(data.totalPlayers) || players.size;
             if (screen === 'lobby') renderLobby();
         });

@@ -223,6 +223,7 @@ export default async function courseView({ root, params, user }) {
                         onSaved: () => loadCourse()
                     })
                 }, 'Editar curso'),
+                h('a', { class: 'btn small', href: `#/cursos/${params.id}/silabo` }, icon('sparkles', 14), 'Sílabo con IA'),
                 h('a', { class: 'btn ghost small', href: '#/cursos' }, icon('arrow', 14), 'Volver'))));
     };
 

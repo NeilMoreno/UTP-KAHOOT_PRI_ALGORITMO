@@ -6,6 +6,7 @@ import {
     createKahootSocket, emitAck, roomErrorMessage, connectErrorMessage
 } from '../../socket.js';
 import { refreshUser } from '../../state.js';
+import { createAvatar, getAvatarChoice } from '../../characters.js';
 
 const NICK_KEY = 'codeint.kahoot.nick';
 const LABELS = ['A', 'B', 'C', 'D'];
@@ -148,7 +149,7 @@ export default async function playRoomView({ root, params, user }) {
             h('div', { class: 'pin-display' },
                 h('span', {}, 'PIN de la sala'),
                 h('strong', {}, pin),
-                h('small', {}, nick)),
+                h('div', { class: 'player-badge' }, createAvatar(getAvatarChoice(), { size: 72, label: 'Tu avatar' }), h('small', {}, nick))),
             h('div', { style: { textAlign: 'center' } },
                 h('h2', {}, 'Esperando al docente'),
                 h('p', { class: 'muted', style: { marginTop: '6px' } }, 'La partida comenzará en cuanto el anfitrión la inicie.'))]);
@@ -248,7 +249,8 @@ export default async function playRoomView({ root, params, user }) {
             (option) => option.etiqueta === data.opcionCorrecta
         );
         renderStage([
-            h('div', { class: 'countdown-stage' },
+            h('div', { class: `countdown-stage result-stage ${data.correct ? 'is-correct' : 'is-wrong'}` },
+                createAvatar(getAvatarChoice(), { size: 96, label: '', className: 'result-avatar' }),
                 h('div', { class: 'countdown-number', style: { color: data.correct ? 'var(--positive)' : 'var(--negative)' } },
                     data.correct ? '✓' : '×'),
                 h('h2', {}, data.correct ? '¡Correcto!' : 'Incorrecto'),
@@ -282,6 +284,7 @@ export default async function playRoomView({ root, params, user }) {
         const step = (participant, place) => participant
             ? h('div', { class: `podium-step ${place}` },
                 h('span', { class: 'medal' }, MEDALS[['first', 'second', 'third'].indexOf(place)] || '🏅'),
+                createAvatar(participant.avatar, { size: 64, label: '' }),
                 h('strong', {}, participant.nick),
                 h('small', {}, `${formatNumber(participant.puntaje)} pts`))
             : h('div', { class: `podium-step ${place}` }, h('span', { class: 'muted small' }, '—'));

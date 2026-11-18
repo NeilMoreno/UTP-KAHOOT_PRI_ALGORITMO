@@ -14,7 +14,7 @@ export default async function forgotPasswordView({ root }) {
 
     const email = h('input', {
         class: 'input', id: 'email', type: 'email', autocomplete: 'username', required: true,
-        placeholder: 'tu.correo@utp.edu.pe'
+        placeholder: 'tu.correo@institucion.edu'
     });
     const errorBox = h('div', { role: 'alert', hidden: true });
     const submit = h('button', { class: 'btn block', type: 'submit' }, 'Enviar enlace');

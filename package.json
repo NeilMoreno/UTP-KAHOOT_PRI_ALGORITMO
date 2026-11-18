@@ -18,7 +18,8 @@
     "db:provision-app-role": "node scripts/provision-app-db-role.js",
     "db:bootstrap-superadmin": "node scripts/bootstrap-superadmin.js",
     "db:bootstrap-superadmin:prompt": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/bootstrap-superadmin.ps1",
-    "security:production-check": "node scripts/check-production-readiness.js"
+    "security:production-check": "node scripts/check-production-readiness.js",
+    "build:assets": "node scripts/build-frontend-assets.js"
   },
   "keywords": [
     "pseint",
@@ -43,6 +44,8 @@
     "socket.io": "^4.8.1"
   },
   "devDependencies": {
+    "@fontsource-variable/baloo-2": "^5.3.0",
+    "@fontsource-variable/nunito": "^5.3.0",
     "socket.io-client": "^4.8.4",
     "supertest": "^7.3.1"
   }

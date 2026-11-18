@@ -3,6 +3,7 @@ import { h, clear, errorMessage } from './ui.js';
 import { state } from './state.js';
 
 const ROUTES = [
+    { path: '/inicio', public: true, load: () => import('./views/landing.js') },
     { path: '/login', public: true, load: () => import('./views/login.js') },
     { path: '/registro', public: true, load: () => import('./views/register.js') },
     { path: '/recuperar-password', public: true, load: () => import('./views/forgot-password.js') },
@@ -10,12 +11,15 @@ const ROUTES = [
     { path: '/', load: () => import('./views/home.js') },
     { path: '/perfil', load: () => import('./views/profile.js') },
     { path: '/personajes', roles: ['estudiante'], load: () => import('./views/student/characters.js') },
+    { path: '/logros', roles: ['estudiante'], load: () => import('./views/student/achievements.js') },
+    { path: '/ranking/:id', roles: ['estudiante', 'docente', 'superadministrador'], load: () => import('./views/student/ranking.js') },
     { path: '/curso/:id', roles: ['estudiante'], load: () => import('./views/student/worlds.js') },
     { path: '/mundo/:id', roles: ['estudiante'], load: () => import('./views/student/exercises.js') },
     { path: '/ejercicio/:id', roles: ['estudiante'], load: () => import('./views/student/workspace.js') },
     { path: '/jugar', roles: ['estudiante'], load: () => import('./views/student/play.js') },
     { path: '/jugar/:pin', roles: ['estudiante'], load: () => import('./views/student/play-room.js') },
     { path: '/cursos', roles: ['docente', 'superadministrador'], load: () => import('./views/teacher/courses.js') },
+    { path: '/cursos/:id/silabo', roles: ['docente', 'superadministrador'], load: () => import('./views/teacher/syllabus.js') },
     { path: '/cursos/:id', roles: ['docente', 'superadministrador'], load: () => import('./views/teacher/course.js') },
     { path: '/mundos/:id', roles: ['docente', 'superadministrador'], load: () => import('./views/teacher/world.js') },
     { path: '/salas', roles: ['docente', 'superadministrador'], load: () => import('./views/teacher/salas.js') },
@@ -73,8 +77,8 @@ export function startRouter({ host, onRender }) {
         }
 
         if (!match) return navigate('/');
-        if (!match.public && !state.user) return navigate('/login');
-        if (match.public && state.user && match.path === '/login') return navigate('/');
+        if (!match.public && !state.user) return navigate(match.path === '/' ? '/inicio' : '/login');
+        if (match.public && state.user && (match.path === '/login' || match.path === '/inicio')) return navigate('/');
         if (match.roles && !match.roles.includes(state.user.rol)) return navigate('/');
 
         const root = h('div', { class: 'view' });

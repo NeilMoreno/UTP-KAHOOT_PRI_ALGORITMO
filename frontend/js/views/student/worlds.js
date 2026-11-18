@@ -46,7 +46,8 @@ export default async function worldsView({ root, params }) {
         h('nav', { class: 'breadcrumb', 'aria-label': 'Ruta' }, h('a', { href: '#/' }, 'Inicio'), ' / ', curso?.nombre || 'Curso'),
         h('div', { class: 'page-head' },
             h('div', {}, h('h1', {}, curso?.nombre || 'Mapa de mundos'),
-                h('p', {}, `${done} de ${worlds.length} mundos completados`))),
+                h('p', {}, `${done} de ${worlds.length} mundos completados`)),
+            h('a', { class: 'btn secondary', href: `#/ranking/${params.id}` }, 'Ranking del curso')),
         worlds.length === 0
             ? h('div', { class: 'card empty' }, 'Este curso aún no tiene mundos.')
             : h('section', { class: 'world-stage', 'aria-label': 'Constelación del curso' },
