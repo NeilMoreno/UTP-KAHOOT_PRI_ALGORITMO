@@ -8,6 +8,7 @@ const { getAuthorizedCourse } = require('../services/authorizationService');
 const { normalizeEmail } = require('../utils/validation');
 const { BASE_WORLDS } = require('../config/baseContent');
 const { generateCourseCode, isValidCourseCode } = require('../utils/courseCode');
+const { DEFAULT_LANGUAGE, getLanguage, isValidLanguage } = require('../config/languages');
 
 /**
  * Listado de cursos según el rol del usuario
@@ -22,7 +23,7 @@ const getCursos = async (req, res, next) => {
         if (user.rol === 'estudiante') {
             // Cursos donde el estudiante está matriculado
             sql = `
-                SELECT c.id_curso, c.id_institucion, c.nombre, c.codigo_curso, c.periodo, c.estado,
+                SELECT c.id_curso, c.id_institucion, c.nombre, c.codigo_curso, c.periodo, c.estado, c.lenguaje,
                        m.id_matricula, m.fecha_matricula, m.estado AS estado_matricula,
                        u.nombre AS docente_nombre, u.apellido AS docente_apellido, u.email AS docente_email,
                        (SELECT count(*) FROM mundo mu WHERE mu.id_curso = c.id_curso)::INTEGER AS total_mundos,
@@ -37,7 +38,7 @@ const getCursos = async (req, res, next) => {
         } else if (user.rol === 'docente') {
             // Cursos administrados por este docente
             sql = `
-                SELECT c.id_curso, c.id_institucion, c.nombre, c.codigo_curso, c.periodo, c.estado, c.fecha_creacion,
+                SELECT c.id_curso, c.id_institucion, c.nombre, c.codigo_curso, c.periodo, c.estado, c.lenguaje, c.fecha_creacion,
                        (SELECT count(*) FROM matricula m WHERE m.id_curso = c.id_curso AND m.estado = 'activa')::INTEGER AS total_estudiantes,
                        (SELECT count(*) FROM mundo mu WHERE mu.id_curso = c.id_curso)::INTEGER AS total_mundos
                 FROM curso c
@@ -48,7 +49,7 @@ const getCursos = async (req, res, next) => {
         } else {
             // Superadministrador: todos los cursos de todas las instituciones
             sql = `
-                SELECT c.id_curso, c.id_institucion, c.nombre, c.codigo_curso, c.periodo, c.estado, c.fecha_creacion,
+                SELECT c.id_curso, c.id_institucion, c.nombre, c.codigo_curso, c.periodo, c.estado, c.lenguaje, c.fecha_creacion,
                        i.nombre AS institucion_nombre,
                        u.nombre AS docente_nombre, u.apellido AS docente_apellido,
                        (SELECT count(*) FROM matricula m WHERE m.id_curso = c.id_curso AND m.estado = 'activa')::INTEGER AS total_estudiantes,
@@ -83,7 +84,7 @@ const getCursoById = async (req, res, next) => {
         await getAuthorizedCourse(id_curso, user);
 
         const sql = `
-            SELECT c.id_curso, c.id_institucion, c.id_docente, c.nombre, c.codigo_curso, c.periodo, c.estado, c.fecha_creacion,
+            SELECT c.id_curso, c.id_institucion, c.id_docente, c.nombre, c.codigo_curso, c.periodo, c.estado, c.lenguaje, c.fecha_creacion,
                    i.nombre AS institucion_nombre,
                    u.nombre AS docente_nombre, u.apellido AS docente_apellido, u.email AS docente_email,
                    (SELECT count(*) FROM matricula m WHERE m.id_curso = c.id_curso AND m.estado = 'activa')::INTEGER AS total_estudiantes
@@ -179,6 +180,10 @@ const createCurso = async (req, res, next) => {
     try {
         const { nombre, periodo } = req.body;
         const user = req.user;
+        const lenguaje = req.body.lenguaje === undefined ? DEFAULT_LANGUAGE : req.body.lenguaje;
+        if (!isValidLanguage(lenguaje)) {
+            return res.status(400).json({ success: false, error: 'INVALID_LANGUAGE', message: 'El lenguaje del curso no es válido.' });
+        }
 
         // El código es opcional: si el docente no lo escribe se genera desde el nombre.
         if (!nombre || !periodo) {
@@ -247,21 +252,22 @@ const createCurso = async (req, res, next) => {
 
         // Insertar curso
         const insertCursoSql = `
-            INSERT INTO curso (id_institucion, id_docente, nombre, codigo_curso, periodo, estado)
-            VALUES ($1, $2, $3, $4, $5, 'activo')
-            RETURNING id_curso, id_institucion, id_docente, nombre, codigo_curso, periodo, estado, fecha_creacion;
+            INSERT INTO curso (id_institucion, id_docente, nombre, codigo_curso, periodo, estado, lenguaje)
+            VALUES ($1, $2, $3, $4, $5, 'activo', $6)
+            RETURNING id_curso, id_institucion, id_docente, nombre, codigo_curso, periodo, estado, lenguaje, fecha_creacion;
         `;
         const cursoRes = await client.query(insertCursoSql, [
             id_institucion,
             id_docente,
             nombre.trim(),
             codigo_curso,
-            periodo.trim()
+            periodo.trim(),
+            lenguaje
         ]);
         const nuevoCurso = cursoRes.rows[0];
 
-        // Inicializar automáticamente los 7 Mundos Base y su contenido para este curso
-        for (const m of BASE_WORLDS) {
+        // Solo los cursos de PSeInt traen los 7 Mundos Base; los demás nacen vacíos y se llenan con el sílabo + IA.
+        for (const m of (lenguaje === DEFAULT_LANGUAGE ? BASE_WORLDS : [])) {
             const mundoRes = await client.query(
                 `INSERT INTO mundo (id_curso, orden, nombre, descripcion, tipo_origen)
                  VALUES ($1, $2, $3, $4, 'base')
@@ -284,7 +290,9 @@ const createCurso = async (req, res, next) => {
 
         return res.status(201).json({
             success: true,
-            message: 'Curso creado exitosamente con sus 7 mundos temáticos y su contenido base.',
+            message: lenguaje === DEFAULT_LANGUAGE
+                ? 'Curso creado exitosamente con sus 7 mundos temáticos y su contenido base.'
+                : `Curso de ${getLanguage(lenguaje).nombre} creado. Empieza sin mundos: sube tu sílabo para que la IA los genere.`,
             data: nuevoCurso
         });
     } catch (error) {
@@ -302,9 +310,12 @@ const createCurso = async (req, res, next) => {
 const updateCurso = async (req, res, next) => {
     try {
         const { id_curso } = req.params;
-        const { nombre, codigo_curso, periodo, estado } = req.body;
+        const { nombre, codigo_curso, periodo, estado, lenguaje } = req.body;
         const user = req.user;
         await getAuthorizedCourse(id_curso, user, { write: true });
+        if (lenguaje !== undefined && !isValidLanguage(lenguaje)) {
+            return res.status(400).json({ success: false, error: 'INVALID_LANGUAGE', message: 'El lenguaje del curso no es válido.' });
+        }
 
         // Verificar que el curso exista y pertenezca al docente o institución
         const checkSql = 'SELECT id_curso, id_docente, id_institucion FROM curso WHERE id_curso = $1;';
@@ -315,6 +326,21 @@ const updateCurso = async (req, res, next) => {
         }
 
         const curso = checkRes.rows[0];
+        if (lenguaje !== undefined) {
+            const current = await query('SELECT lenguaje FROM curso WHERE id_curso = $1;', [id_curso]);
+            if (current.rows[0].lenguaje !== lenguaje) {
+                const content = await query(
+                    `SELECT (SELECT count(*) FROM ejercicio WHERE id_curso = $1) AS ejercicios,
+                            (SELECT count(*) FROM envio_ejercicio WHERE id_curso = $1) AS envios;`, [id_curso]
+                );
+                if (Number(content.rows[0].ejercicios) > 0 || Number(content.rows[0].envios) > 0) {
+                    return res.status(409).json({
+                        success: false, error: 'LANGUAGE_LOCKED',
+                        message: 'El lenguaje ya no se puede cambiar: el curso tiene ejercicios o entregas.'
+                    });
+                }
+            }
+        }
         if (user.rol === 'docente' && curso.id_docente !== user.id_usuario) {
             return res.status(403).json({
                 success: false,
@@ -327,16 +353,18 @@ const updateCurso = async (req, res, next) => {
             SET nombre = COALESCE($1, nombre),
                 codigo_curso = COALESCE($2, codigo_curso),
                 periodo = COALESCE($3, periodo),
-                estado = COALESCE($4, estado)
+                estado = COALESCE($4, estado),
+                lenguaje = COALESCE($6, lenguaje)
             WHERE id_curso = $5
-            RETURNING id_curso, nombre, codigo_curso, periodo, estado;
+            RETURNING id_curso, nombre, codigo_curso, periodo, estado, lenguaje;
         `;
         const updatedRes = await query(updateSql, [
             nombre ? nombre.trim() : null,
             codigo_curso ? codigo_curso.trim().toUpperCase() : null,
             periodo ? periodo.trim() : null,
             estado ? estado.trim() : null,
-            id_curso
+            id_curso,
+            lenguaje === undefined ? null : lenguaje
         ]);
 
         return res.json({

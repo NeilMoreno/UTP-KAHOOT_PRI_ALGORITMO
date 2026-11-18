@@ -56,7 +56,7 @@ const titleForPath = (path) => {
     if (path.endsWith('/silabo')) return 'Sílabo con IA';
     if (path.startsWith('/cursos/')) return 'Gestión del curso';
     if (path.startsWith('/mundos/')) return 'Ejercicios del mundo';
-    if (path.startsWith('/ejercicio')) return 'Editor PSeInt';
+    if (path.startsWith('/ejercicio')) return 'Editor de código';
     if (path.startsWith('/mundo')) return 'Ejercicios';
     if (path.startsWith('/curso')) return 'Mapa de mundos';
     return 'Centro de misiones';

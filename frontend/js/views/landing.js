@@ -7,7 +7,7 @@ import { CLASES, PRESETS } from '../avatar-parts.js';
 export const PENDING_PIN_KEY = 'codeint.pendingPin';
 
 const STEPS = [
-    { icon: 'bolt', title: 'Aprende', text: 'Resuelve retos de PSeInt por mundos y recibe retroalimentación al instante.' },
+    { icon: 'bolt', title: 'Aprende', text: 'Resuelve retos de programación por mundos y recibe retroalimentación al instante.' },
     { icon: 'play', title: 'Juega', text: 'Entra a las salas en vivo de tu docente con un PIN y compite con tu curso.' },
     { icon: 'trophy', title: 'Sube de nivel', text: 'Gana XP, mantén tu racha y desbloquea piezas para tu avatar.' }
 ];
@@ -117,7 +117,7 @@ export default function landingView({ root }) {
                 h('div', { class: 'landing-copy' },
                     h('span', { class: 'chip' }, 'Para tu curso de algoritmos'),
                     h('h1', {}, 'Programa. Compite. ', h('em', {}, 'Sube de nivel.')),
-                    h('p', {}, 'codeInt convierte tus ejercicios de PSeInt en misiones y partidas en vivo. Elige tu clase, arma tu avatar y demuestra lo que sabes.'),
+                    h('p', {}, 'codeInt convierte tus ejercicios de programación en misiones y partidas en vivo. Elige tu clase, arma tu avatar y demuestra lo que sabes.'),
                     h('form', { class: 'pin-card', novalidate: true, onSubmit: joinWithPin },
                         h('label', { for: 'landing-pin' }, '¿Tu docente abrió una sala?'),
                         h('div', { class: 'pin-row' }, pinInput, h('button', { class: 'btn', type: 'submit' }, icon('play', 15), 'Unirme')),

@@ -3,6 +3,7 @@ import { api } from '../../api.js';
 import { refreshUser } from '../../state.js';
 import { createAvatar, getAvatarChoice, className } from '../../characters.js';
 import { LAYERS } from '../../avatar-parts.js';
+import { getLanguage } from '../../languages.js';
 
 const progressBar = (value, label, className = '') => h('div', {
     class: `progress ${className}`.trim(), role: 'progressbar',
@@ -15,7 +16,7 @@ const courseRow = (course) => {
     const percent = total > 0 ? Math.round((done / total) * 100) : 0;
     return h('article', { class: 'course-row' },
         h('div', { class: 'course-main' },
-            h('div', {}, h('h3', {}, course.nombre), h('p', {}, `${course.codigo_curso} · ${course.periodo}`)),
+            h('div', {}, h('h3', {}, course.nombre), h('p', {}, `${course.codigo_curso} · ${course.periodo} · ${getLanguage(course.lenguaje).nombre}`)),
             h('div', { class: 'course-links' },
                 h('a', { class: 'text-action', href: `#/ranking/${course.id_curso}` }, 'Ranking', icon('trophy', 14)),
                 h('a', { class: 'text-action', href: `#/curso/${course.id_curso}` }, done > 0 ? 'Continuar' : 'Comenzar', icon('play', 14)))),

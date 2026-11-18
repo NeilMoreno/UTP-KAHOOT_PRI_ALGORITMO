@@ -5,6 +5,7 @@
 
 const { query } = require('../config/database');
 const { httpError } = require('../utils/httpError');
+const { getLanguage, publicLanguage } = require('../config/languages');
 const {
     getAuthorizedCourse,
     getAuthorizedWorld,
@@ -178,7 +179,8 @@ const getEjercicioById = async (req, res, next) => {
             SELECT e.id_ejercicio, e.id_mundo, e.id_curso, e.titulo, e.enunciado,
                    e.plantilla_pseint, e.orden, e.xp_recompensa,
                    m.nombre AS mundo_nombre, m.orden AS mundo_orden,
-                   c.nombre AS curso_nombre, c.codigo_curso
+                   e.nivel, e.rubrica, e.fuente_silabo,
+                   c.nombre AS curso_nombre, c.codigo_curso, c.lenguaje
             FROM ejercicio e
             JOIN mundo m ON m.id_mundo = e.id_mundo
             JOIN curso c ON c.id_curso = e.id_curso
@@ -195,6 +197,8 @@ const getEjercicioById = async (req, res, next) => {
         }
 
         const ejercicio = result.rows[0];
+        // Lenguaje del curso con su plantilla base (se usa si el ejercicio no trae una propia).
+        ejercicio.lenguaje = publicLanguage(ejercicio.lenguaje);
 
         // Si es estudiante, obtener su último envío y evaluación
         if (user.rol === 'estudiante') {
@@ -239,7 +243,7 @@ const createEjercicio = async (req, res, next) => {
         }
 
         // Obtener id_curso a partir del mundo
-        const mundoRes = await query('SELECT id_curso FROM mundo WHERE id_mundo = $1 LIMIT 1;', [id_mundo]);
+        const mundoRes = await query('SELECT m.id_curso, c.lenguaje FROM mundo m JOIN curso c ON c.id_curso = m.id_curso WHERE m.id_mundo = $1 LIMIT 1;', [id_mundo]);
         if (mundoRes.rowCount === 0) {
             return res.status(404).json({ success: false, message: 'Mundo no encontrado.' });
         }
@@ -273,7 +277,7 @@ const createEjercicio = async (req, res, next) => {
             id_curso,
             titulo.trim(),
             enunciado.trim(),
-            plantilla_pseint || 'Algoritmo Solucion\n\t// Tu código PSeInt aquí\nFinAlgoritmo',
+            plantilla_pseint || getLanguage(mundoRes.rows[0].lenguaje).plantilla,
             ordenNumerico,
             xpNumerico
         ]);

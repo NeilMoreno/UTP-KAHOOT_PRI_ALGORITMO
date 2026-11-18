@@ -2,7 +2,7 @@ import { h, icon, skeleton, errorMessage, formatDate } from '../../ui.js';
 import { api } from '../../api.js';
 
 const GROUPS = [
-    { key: 'ejercicios_aprobados', title: 'Ejercicios', hint: 'Aprueba ejercicios de PSeInt' },
+    { key: 'ejercicios_aprobados', title: 'Ejercicios', hint: 'Aprueba ejercicios de programación' },
     { key: 'mundos_completados', title: 'Mundos', hint: 'Completa mundos temáticos' },
     { key: 'xp_acumulado', title: 'Experiencia', hint: 'Acumula XP' },
     { key: 'partidas_participadas', title: 'Salas en vivo', hint: 'Juega partidas con tu curso' },

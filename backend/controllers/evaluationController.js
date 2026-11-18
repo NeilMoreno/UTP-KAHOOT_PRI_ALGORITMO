@@ -3,7 +3,8 @@
 const { randomUUID } = require('crypto');
 const { query, getClient } = require('../config/database');
 const { getAuthorizedExercise, getAuthorizedWorld } = require('../services/authorizationService');
-const { validatePseInt, DEFAULT_MAX_CODE_LENGTH } = require('../services/pseintValidator');
+const { DEFAULT_MAX_CODE_LENGTH } = require('../services/pseintValidator');
+const { getLanguage } = require('../config/languages');
 const { evaluatePseIntWithGemini } = require('../services/geminiService');
 const { unlockAchievements } = require('../services/achievementService');
 const { getEstudianteGamificationSummary } = require('../services/gamificationService');
@@ -66,7 +67,7 @@ const getExerciseContext = async (idExercise, user) => {
         SELECT e.id_ejercicio, e.id_mundo, e.id_curso, e.titulo, e.enunciado,
                e.rubrica, e.fuente_silabo, e.nivel,
                e.xp_recompensa, m.orden AS mundo_orden,
-               c.id_docente, c.id_institucion
+               c.id_docente, c.id_institucion, c.lenguaje
           FROM ejercicio e
           JOIN mundo m ON m.id_mundo = e.id_mundo
           JOIN curso c ON c.id_curso = e.id_curso
@@ -149,7 +150,7 @@ const validateCode = async (req, res, next) => {
         const code = getCode(req.body);
         const exercise = await getExerciseContext(req.params.id_ejercicio, req.user);
         await getActiveEnrollment(exercise.id_curso, req.user.id_usuario);
-        const validation = validatePseInt(code, { maxLength: DEFAULT_MAX_CODE_LENGTH });
+        const validation = getLanguage(exercise.lenguaje).validate(code, { maxLength: DEFAULT_MAX_CODE_LENGTH });
         return res.json({
             success: true,
             valido: validation.valid,
@@ -170,7 +171,7 @@ const submitAndEvaluate = async (req, res, next) => {
         operationId = getOperationId(req);
         const exercise = await getExerciseContext(req.params.id_ejercicio, req.user);
         const enrollment = await getActiveEnrollment(exercise.id_curso, req.user.id_usuario);
-        const validation = validatePseInt(code, { maxLength: DEFAULT_MAX_CODE_LENGTH });
+        const validation = getLanguage(exercise.lenguaje).validate(code, { maxLength: DEFAULT_MAX_CODE_LENGTH });
         const validationMessage = JSON.stringify({
             resumen: validation.summary,
             errores: validation.errors,

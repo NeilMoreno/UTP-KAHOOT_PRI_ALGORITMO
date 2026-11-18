@@ -1,7 +1,7 @@
 import { h, icon, toast, setBusy, errorMessage, formatDate } from '../../ui.js';
 import { api, request, ApiError } from '../../api.js';
 import { refreshUser } from '../../state.js';
-import { createPseintEditor } from '../../pseint-editor.js';
+import { createCodeEditor } from '../../code-editor.js';
 import { showEvaluationResult, PASS_SCORE } from './result-modal.js';
 
 const MAX_POLLS = 10;
@@ -39,8 +39,12 @@ export default async function workspaceView({ root, params, user }) {
     const readDraft = () => { try { return sessionStorage.getItem(draftKey); } catch { return null; } };
     const writeDraft = (text) => { try { sessionStorage.setItem(draftKey, text); } catch { /* almacenamiento bloqueado */ } };
 
-    const initialCode = readDraft() ?? exercise.ultimo_envio?.codigo_pseint ?? exercise.plantilla_pseint ?? '';
-    const editor = createPseintEditor({
+    // El lenguaje es el del curso; si el ejercicio no trae plantilla propia se usa la inicial del lenguaje.
+    const language = exercise.lenguaje || { id: 'pseint', nombre: 'PSeInt', plantilla: '' };
+    const starterCode = exercise.plantilla_pseint || language.plantilla || '';
+    const initialCode = readDraft() ?? exercise.ultimo_envio?.codigo_pseint ?? starterCode;
+    const editor = createCodeEditor({
+        language: language.id,
         value: initialCode,
         describedBy: 'editor-help',
         onChange: (text) => writeDraft(text)
@@ -49,7 +53,7 @@ export default async function workspaceView({ root, params, user }) {
     const problems = h('div', { 'aria-live': 'polite' });
     const historyHost = h('ul', { class: 'history-list' });
 
-    const validateButton = h('button', { class: 'btn ghost', type: 'button' }, icon('check', 16), 'Validar sintaxis');
+    const validateButton = h('button', { class: 'btn ghost', type: 'button' }, icon('check', 16), 'Revisar código');
     const submitButton = h('button', { class: 'btn ai', type: 'button' }, icon('sparkles', 16), 'Enviar a la IA');
     const resetButton = h('button', { class: 'btn ghost small', type: 'button' }, 'Restaurar plantilla');
 
@@ -135,7 +139,7 @@ export default async function workspaceView({ root, params, user }) {
     });
 
     resetButton.addEventListener('click', () => {
-        editor.setValue(exercise.plantilla_pseint || '');
+        editor.setValue(starterCode);
         problems.replaceChildren();
         attempt = null;
     });
@@ -246,7 +250,8 @@ export default async function workspaceView({ root, params, user }) {
             h('section', { class: 'stack' },
                 h('div', { class: 'card editor-card' },
                     h('div', { class: 'editor-bar' },
-                        h('strong', {}, 'Editor PSeInt'),
+                        h('strong', {}, `Editor ${language.nombre}`),
+                        h('span', { class: `chip lang-${language.id}` }, language.nombre),
                         resetButton),
                     editor.element,
                     h('div', { class: 'editor-bar', style: { borderTop: '1px solid var(--border)', borderBottom: 0 } },

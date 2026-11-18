@@ -17,7 +17,7 @@ const getMundosByCurso = async (req, res, next) => {
         await getAuthorizedCourse(id_curso, user);
 
         // Validar existencia del curso
-        const cursoRes = await query('SELECT id_curso, nombre, codigo_curso FROM curso WHERE id_curso = $1;', [id_curso]);
+        const cursoRes = await query('SELECT id_curso, nombre, codigo_curso, lenguaje FROM curso WHERE id_curso = $1;', [id_curso]);
         if (cursoRes.rowCount === 0) {
             return res.status(404).json({
                 success: false,
@@ -194,7 +194,7 @@ const getMundoById = async (req, res, next) => {
 
         const sql = `
             SELECT m.id_mundo, m.id_curso, m.orden, m.nombre, m.descripcion, m.tipo_origen,
-                   c.nombre AS curso_nombre, c.codigo_curso,
+                   c.nombre AS curso_nombre, c.codigo_curso, c.lenguaje,
                    (SELECT count(*) FROM ejercicio e WHERE e.id_mundo = m.id_mundo)::INTEGER AS total_ejercicios
             FROM mundo m
             JOIN curso c ON c.id_curso = m.id_curso

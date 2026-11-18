@@ -1,6 +1,7 @@
 // Utilidades compartidas por las vistas del panel docente.
 import { h, openModal, setBusy, errorMessage, toast } from '../../ui.js';
 import { api } from '../../api.js';
+import { LANGUAGES, LANGUAGE_IDS, DEFAULT_LANGUAGE, getLanguage } from '../../languages.js';
 
 const STATUS_TONE = {
     activo: 'green',
@@ -55,6 +56,9 @@ export const statusChip = (estado) => h(
     STATUS_LABEL[estado] || estado
 );
 
+// Chip con el lenguaje del curso (PSeInt, Python…).
+export const languageChip = (id) => h('span', { class: `chip lang-${getLanguage(id).id}` }, getLanguage(id).nombre);
+
 export const emptyState = (title, detail) => h('div', { class: 'empty-state' },
     h('strong', {}, title),
     detail ? h('p', {}, detail) : null);
@@ -90,6 +94,19 @@ export const courseFormModal = ({ course = null, onSaved }) => {
     nombre.addEventListener('input', refreshSuggestion);
     const periodo = h('input', { class: 'input', id: 'curso-periodo', type: 'text', required: true, maxlength: 20, value: course?.periodo || '', placeholder: '2026-II' });
     periodo.addEventListener('input', refreshSuggestion);
+    // El lenguaje define el editor, la plantilla y cómo evalúa la IA. Solo se puede cambiar mientras el curso
+    // no tenga ejercicios ni entregas (el servidor lo comprueba).
+    const lenguaje = h('select', { class: 'input', id: 'curso-lenguaje' },
+        LANGUAGE_IDS.map((id) => h('option', { value: id }, LANGUAGES[id].nombre)));
+    lenguaje.value = course?.lenguaje || DEFAULT_LANGUAGE;
+    const languageHint = h('span', { class: 'hint' });
+    const syncLanguageHint = () => {
+        languageHint.textContent = lenguaje.value === DEFAULT_LANGUAGE
+            ? 'Incluye 7 mundos de práctica base.'
+            : `Empieza sin mundos: sube tu sílabo y la IA los crea en ${getLanguage(lenguaje.value).nombre}.`;
+    };
+    lenguaje.addEventListener('change', syncLanguageHint);
+    syncLanguageHint();
     const estado = editing
         ? h('select', { class: 'input', id: 'curso-estado' },
             h('option', { value: 'activo', selected: course.estado === 'activo' }, 'Activo'),
@@ -110,6 +127,7 @@ export const courseFormModal = ({ course = null, onSaved }) => {
             };
             const manualCode = codigo.value.trim().toUpperCase();
             if (editing || manualCode) payload.codigo_curso = manualCode;
+            payload.lenguaje = lenguaje.value;
             if (editing) payload.estado = estado.value;
 
             if (!payload.nombre || !payload.periodo || (editing && !payload.codigo_curso)) {
@@ -139,6 +157,7 @@ export const courseFormModal = ({ course = null, onSaved }) => {
         h('div', { class: 'field' }, h('label', { for: 'curso-nombre' }, 'Nombre del curso'), nombre),
         h('div', { class: 'field' }, h('label', { for: 'curso-codigo' }, 'Código'), codigo, codeHint),
         h('div', { class: 'field' }, h('label', { for: 'curso-periodo' }, 'Periodo'), periodo),
+        h('div', { class: 'field' }, h('label', { for: 'curso-lenguaje' }, 'Lenguaje de programación'), lenguaje, languageHint),
         estado ? h('div', { class: 'field' }, h('label', { for: 'curso-estado' }, 'Estado'), estado) : null),
     errorBox,
     h('div', { class: 'form-actions' },
@@ -149,7 +168,7 @@ export const courseFormModal = ({ course = null, onSaved }) => {
         h('div', { class: 'modal-head' }, h('h2', {}, editing ? 'Editar curso' : 'Nuevo curso')),
         editing
             ? h('p', { class: 'muted small' }, 'Editar estos datos no cambia los mundos ni los ejercicios del curso.')
-            : h('p', { class: 'muted small' }, 'Al crear el curso se generan 7 mundos de práctica base. Luego puedes subir tu sílabo y que la IA los reemplace por contenido a tu medida.'),
+            : h('p', { class: 'muted small' }, 'Elige el lenguaje del curso. Luego puedes subir tu sílabo y que la IA cree los mundos y ejercicios a tu medida.'),
         form), { label: editing ? 'Editar curso' : 'Nuevo curso' });
 
     nombre.focus();

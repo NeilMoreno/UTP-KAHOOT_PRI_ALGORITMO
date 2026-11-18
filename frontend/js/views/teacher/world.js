@@ -4,14 +4,15 @@ import {
 } from '../../ui.js';
 import { api } from '../../api.js';
 import { emptyState } from './helpers.js';
+import { getLanguage } from '../../languages.js';
 
-const exerciseFormModal = ({ idMundo, exercise = null, suggestedOrder = 1, onSaved }) => {
+const exerciseFormModal = ({ idMundo, exercise = null, suggestedOrder = 1, language = getLanguage('pseint'), onSaved }) => {
     const editing = Boolean(exercise);
     const titulo = h('input', { class: 'input', id: 'ejercicio-titulo', type: 'text', required: true, maxlength: 200, value: exercise?.titulo || '' });
     const orden = h('input', { class: 'input', id: 'ejercicio-orden', type: 'number', min: 1, step: 1, required: true, value: exercise?.orden ?? suggestedOrder });
     const xp = h('input', { class: 'input', id: 'ejercicio-xp', type: 'number', min: 0, max: 1000, step: 10, required: true, value: exercise?.xp_recompensa ?? 50 });
     const enunciado = h('textarea', { class: 'input', id: 'ejercicio-enunciado', rows: 4, required: true }, exercise?.enunciado || '');
-    const plantilla = h('textarea', { class: 'input code', id: 'ejercicio-plantilla', rows: 10 }, exercise?.plantilla_pseint || 'Algoritmo Solucion\n\t// Tu código PSeInt aquí\nFinAlgoritmo');
+    const plantilla = h('textarea', { class: 'input code', id: 'ejercicio-plantilla', rows: 10 }, exercise?.plantilla_pseint || language.plantilla);
     const errorBox = h('div', { role: 'alert', hidden: true });
     const submit = h('button', { class: 'btn', type: 'submit' }, editing ? 'Guardar cambios' : 'Crear ejercicio');
 
@@ -68,7 +69,7 @@ const exerciseFormModal = ({ idMundo, exercise = null, suggestedOrder = 1, onSav
             h('span', { class: 'hint' }, 'Debe ser único dentro del mundo.')),
         h('div', { class: 'field' }, h('label', { for: 'ejercicio-xp' }, 'XP de recompensa'), xp)),
     h('div', { class: 'field' }, h('label', { for: 'ejercicio-enunciado' }, 'Enunciado'), enunciado),
-    h('div', { class: 'field' }, h('label', { for: 'ejercicio-plantilla' }, 'Plantilla PSeInt'), plantilla,
+    h('div', { class: 'field' }, h('label', { for: 'ejercicio-plantilla' }, `Plantilla ${language.nombre}`), plantilla,
         h('span', { class: 'hint' }, 'El estudiante verá esta plantilla al abrir el ejercicio.')),
     errorBox,
     h('div', { class: 'form-actions' },
@@ -105,6 +106,7 @@ export default async function worldView({ root, params }) {
     let mundo = null;
     let idCurso = null;
     let cursoNombre = 'Curso';
+    let language = getLanguage('pseint');
     let exercises = [];
 
     const openCreate = () => {
@@ -112,6 +114,7 @@ export default async function worldView({ root, params }) {
         exerciseFormModal({
             idMundo: mundo.id_mundo,
             suggestedOrder: maxOrder + 1,
+            language,
             onSaved: () => load()
         });
     };
@@ -136,7 +139,7 @@ export default async function worldView({ root, params }) {
             contentHost.replaceChildren(
                 h('div', { class: 'alert warn', style: { marginBottom: '16px' } },
                     'Este mundo no tiene ejercicios. Los estudiantes no podrán completarlo y quedarán bloqueados en el siguiente mundo.'),
-                emptyState('Mundo sin contenido', 'Crea el primer ejercicio con su enunciado y plantilla PSeInt.'));
+                emptyState('Mundo sin contenido', 'Crea el primer ejercicio con su enunciado y su plantilla de código.'));
             return;
         }
 
@@ -150,6 +153,7 @@ export default async function worldView({ root, params }) {
                     h('th', {}, h('span', { class: 'sr-only' }, 'Acciones')))),
                 h('tbody', {}, exercises.map((exercise) => exerciseRow(exercise, (item) => {
                     exerciseFormModal({
+                        language,
                         idMundo: mundo.id_mundo,
                         exercise: item,
                         onSaved: () => load()
@@ -165,6 +169,7 @@ export default async function worldView({ root, params }) {
             mundo = response.mundo;
             exercises = response.data;
             idCurso = mundo.id_curso;
+            language = getLanguage(mundo.lenguaje); // plantilla y nombre según el lenguaje del curso
 
             try {
                 const courseResponse = await api(`/cursos/${idCurso}`);

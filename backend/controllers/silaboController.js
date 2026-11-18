@@ -5,6 +5,7 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const { query, getClient } = require('../config/database');
 const { getAuthorizedCourse } = require('../services/authorizationService');
+const { getLanguage } = require('../config/languages');
 const { generateCourseDraft, validateDraftContent, XP_BY_LEVEL, DraftValidationError } = require('../services/syllabusService');
 const { recordSecurityEvent, getRequestIp } = require('../services/securityAuditService');
 const { httpError } = require('../utils/httpError');
@@ -132,8 +133,10 @@ const generarBorrador = async (req, res, next) => {
         }
 
         const pdfBuffer = await fs.readFile(path.resolve(__dirname, '../..', silabo.ruta_archivo));
-        const courseRow = await query('SELECT nombre FROM curso WHERE id_curso = $1;', [req.params.id_curso]);
-        const result = await generateCourseDraft({ pdfBuffer, courseName: courseRow.rows[0]?.nombre });
+        const courseRow = await query('SELECT nombre, lenguaje FROM curso WHERE id_curso = $1;', [req.params.id_curso]);
+        const result = await generateCourseDraft({
+            pdfBuffer, courseName: courseRow.rows[0]?.nombre, language: getLanguage(courseRow.rows[0]?.lenguaje)
+        });
 
         const client = await getClient();
         try {
@@ -262,7 +265,7 @@ const publicarBorrador = async (req, res, next) => {
                     `INSERT INTO ejercicio (id_mundo, id_curso, titulo, enunciado, plantilla_pseint, orden, xp_recompensa, nivel, rubrica, fuente_silabo)
                      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10);`,
                     [world.rows[0].id_mundo, req.params.id_curso, exercise.titulo, exercise.enunciado,
-                        exercise.plantilla_pseint || null, order, XP_BY_LEVEL[exercise.nivel], exercise.nivel,
+                        exercise.plantilla || null, order, XP_BY_LEVEL[exercise.nivel], exercise.nivel,
                         JSON.stringify(exercise.rubrica), exercise.fuente || null]
                 );
                 order += 1;

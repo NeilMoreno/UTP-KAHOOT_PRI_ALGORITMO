@@ -16,7 +16,7 @@ const showcase = () => h('aside', { class: 'auth-showcase', 'aria-hidden': 'true
         h('span', { class: 'brand-mark' }, 'ci'), h('span', {}, 'code', h('strong', {}, 'Int'))),
     h('div', { class: 'auth-pitch' },
         h('p', { class: 'auth-headline' }, 'Programa. Compite. ', h('em', {}, 'Sube de nivel.')),
-        h('p', { class: 'auth-sub' }, 'Retos de PSeInt, salas en vivo con tu curso y un avatar que desbloqueas jugando.')),
+        h('p', { class: 'auth-sub' }, 'Retos de programación, salas en vivo con tu curso y un avatar que desbloqueas jugando.')),
     h('div', { class: 'auth-cast' }, CLASES.map((clase, index) => h('div', { class: 'auth-cast-item', style: { '--delay': `${index * 0.3}s` } },
         createAvatar(PRESETS[clase.id], { size: 64, label: '' })))),
     h('div', { class: 'auth-terminal' },

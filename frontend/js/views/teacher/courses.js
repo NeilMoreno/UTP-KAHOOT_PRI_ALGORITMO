@@ -1,12 +1,12 @@
 import { h, icon, skeleton, errorMessage, formatNumber } from '../../ui.js';
 import { api } from '../../api.js';
-import { courseFormModal, emptyState, statusChip } from './helpers.js';
+import { courseFormModal, emptyState, statusChip, languageChip } from './helpers.js';
 
 const courseRow = (course, onEdit) => h('tr', {},
     h('td', {},
         h('div', { class: 'cell-main' },
             h('strong', {}, course.nombre),
-            h('small', {}, course.codigo_curso))),
+            h('small', {}, course.codigo_curso, ' · ', languageChip(course.lenguaje)))),
     h('td', {}, course.periodo),
     h('td', {}, statusChip(course.estado)),
     h('td', { class: 'num' }, formatNumber(course.total_estudiantes)),

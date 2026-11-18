@@ -1,58 +1,72 @@
-// Editor de PSeInt: <textarea> transparente sobre una capa resaltada (sin dependencias).
-// El resaltado se construye con nodos DOM (nunca innerHTML), así que el código del
-// estudiante no puede inyectar HTML.
+// Editor de código: <textarea> transparente sobre una capa resaltada (sin dependencias).
+// Sirve para todos los lenguajes del curso (ver languages.js). El resaltado se construye con nodos DOM
+// (nunca innerHTML), así que el código del estudiante no puede inyectar HTML.
 import { h } from './ui.js';
+import { getLanguage } from './languages.js';
 
 const norm = (word) => word.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
-const KEYWORDS = new Set([
-    'algoritmo', 'proceso', 'finalgoritmo', 'finproceso', 'subproceso', 'subalgoritmo', 'funcion',
-    'finsubproceso', 'finsubalgoritmo', 'finfuncion', 'definir', 'como', 'dimension', 'escribir', 'leer',
-    'si', 'entonces', 'sino', 'finsi', 'segun', 'hacer', 'de', 'otro', 'modo', 'finsegun', 'fin',
-    'para', 'hasta', 'con', 'paso', 'finpara', 'mientras', 'finmientras', 'repetir', 'que',
-    'retornar', 'esperar', 'tecla', 'limpiar', 'pantalla', 'borrar', 'sin', 'bajar', 'saltar',
-    'por', 'referencia', 'valor', 'y', 'o', 'no', 'mod', 'verdadero', 'falso'
-]);
-const TYPES = new Set(['entero', 'real', 'caracter', 'logico', 'texto', 'numero', 'numerico', 'cadena']);
-const FUNCTIONS = new Set([
-    'rc', 'abs', 'trunc', 'redon', 'azar', 'aleatorio', 'longitud', 'subcadena', 'concatenar',
-    'mayusculas', 'minusculas', 'convertiranumero', 'convertiratexto', 'seno', 'coseno', 'tan', 'ln', 'exp'
-]);
+const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\-]/g, '\\$&');
 
-const TOKEN = /(\/\/.*$)|("(?:[^"\\]|\\.)*"?|'(?:[^'\\]|\\.)*'?)|(\d+(?:\.\d+)?)|([A-Za-zÁÉÍÓÚÜÑáéíóúüñ_][A-Za-z0-9ÁÉÍÓÚÜÑáéíóúüñ_]*)|(<-|<=|>=|<>|[+\-*/^=<>&|~])/g;
+// Cadena que empieza con la comilla `q` (cadenas sin cerrar incluidas: se resalta mientras se escribe).
+const quotePattern = (q) => {
+    const quoted = escapeRegex(q);
+    return `${quoted}(?:[^${quoted}\\\\]|\\\\.)*${quoted}?`;
+};
+const NUMBER = String.raw`\d+(?:\.\d+)?`;
+const OPERATOR = String.raw`<-|<=|>=|<>|==|!=|&&|\|\||[+\-*/^=<>&|~!%]`;
 
-function highlightLine(line) {
-    const fragment = document.createDocumentFragment();
-    let last = 0;
-    TOKEN.lastIndex = 0;
-    let match;
-    while ((match = TOKEN.exec(line)) !== null) {
-        if (match.index > last) fragment.append(line.slice(last, match.index));
-        const [text, comment, string, number, word, operator] = match;
-        let cls = null;
-        if (comment) cls = 'tok-com';
-        else if (string) cls = 'tok-str';
-        else if (number) cls = 'tok-num';
-        else if (operator) cls = 'tok-op';
-        else if (word) {
-            const key = norm(word);
-            if (KEYWORDS.has(key)) cls = 'tok-kw';
-            else if (TYPES.has(key)) cls = 'tok-type';
-            else if (FUNCTIONS.has(key)) cls = 'tok-fn';
+// Un resaltador por lenguaje (se arma una sola vez y se reutiliza).
+const highlighters = new Map();
+const highlighterFor = (language) => {
+    if (highlighters.has(language.id)) return highlighters.get(language.id);
+    const cfg = language.highlight;
+    const stringPattern = cfg.strings.map(quotePattern).join('|');
+    const start = cfg.wordStart || 'A-Za-zÁÉÍÓÚÜÑáéíóúüñ_';
+    const token = new RegExp(
+        `(${cfg.comment})|(${stringPattern})|(${NUMBER})|([${start}][${start}0-9]*)|(${OPERATOR})`,
+        'g'
+    );
+    const fold = (word) => (cfg.caseInsensitive ? norm(word) : word);
+
+    const highlightLine = (line) => {
+        const fragment = document.createDocumentFragment();
+        let last = 0;
+        token.lastIndex = 0;
+        let match;
+        while ((match = token.exec(line)) !== null) {
+            if (match.index > last) fragment.append(line.slice(last, match.index));
+            const [text, comment, string, number, word, operator] = match;
+            let cls = null;
+            if (comment) cls = 'tok-com';
+            else if (string) cls = 'tok-str';
+            else if (number) cls = 'tok-num';
+            else if (operator) cls = 'tok-op';
+            else if (word) {
+                const key = fold(word);
+                if (cfg.keywords.has(key)) cls = 'tok-kw';
+                else if (cfg.types.has(key)) cls = 'tok-type';
+                else if (cfg.functions.has(key)) cls = 'tok-fn';
+            }
+            fragment.append(cls ? h('span', { class: cls }, text) : text);
+            last = match.index + text.length;
         }
-        fragment.append(cls ? h('span', { class: cls }, text) : text);
-        last = match.index + text.length;
-    }
-    if (last < line.length) fragment.append(line.slice(last));
-    return fragment;
-}
+        if (last < line.length) fragment.append(line.slice(last));
+        return fragment;
+    };
+    highlighters.set(language.id, highlightLine);
+    return highlightLine;
+};
 
-export function createPseintEditor({ value = '', label = 'Editor de código PSeInt', describedBy, onChange } = {}) {
+export function createCodeEditor({ language = 'pseint', value = '', label, describedBy, onChange } = {}) {
+    const lang = getLanguage(language);
+    const highlightLine = highlighterFor(lang);
+    const editorLabel = label || `Editor de código ${lang.nombre}`;
     const gutter = h('div', { class: 'editor-gutter', 'aria-hidden': 'true' });
     const highlight = h('pre', { class: 'editor-highlight', 'aria-hidden': 'true' });
     const input = h('textarea', {
         class: 'editor-input', spellcheck: 'false', autocapitalize: 'off', autocomplete: 'off', autocorrect: 'off',
-        wrap: 'off', 'aria-label': label, 'aria-describedby': describedBy, maxlength: 12000
+        wrap: 'off', 'aria-label': editorLabel, 'aria-describedby': describedBy, maxlength: 12000
     });
     const element = h('div', { class: 'editor' }, gutter, h('div', { class: 'editor-main' }, highlight, input));
 
@@ -103,7 +117,7 @@ export function createPseintEditor({ value = '', label = 'Editor de código PSeI
         if (event.key === 'Escape') { escapeArmed = true; return; }
         if (event.key === 'Tab' && !event.shiftKey && !event.ctrlKey && !event.metaKey && !escapeArmed) {
             event.preventDefault();
-            insert('  ');
+            insert(lang.indent); // la sangría depende del lenguaje (2 o 4 espacios)
             return;
         }
         if (event.key === 'Enter' && !event.ctrlKey && !event.metaKey && !event.shiftKey) {

@@ -3,7 +3,7 @@ import {
     openModal, setBusy, toast
 } from '../../ui.js';
 import { api } from '../../api.js';
-import { courseFormModal, enrollmentModal, emptyState, statusChip } from './helpers.js';
+import { courseFormModal, enrollmentModal, emptyState, statusChip, languageChip } from './helpers.js';
 
 const worldCard = (world) => {
     const total = Number(world.total_ejercicios || 0);
@@ -213,7 +213,7 @@ export default async function courseView({ root, params, user }) {
         headerHost.replaceChildren(h('div', { class: 'page-head' },
             h('div', {},
                 h('h1', {}, course.nombre),
-                h('p', {}, `${course.codigo_curso} · ${course.periodo} · ${course.institucion_nombre}`)),
+                h('p', {}, `${course.codigo_curso} · ${course.periodo} · ${course.institucion_nombre} · `, languageChip(course.lenguaje))),
             h('div', { class: 'row' },
                 statusChip(course.estado),
                 h('button', {
