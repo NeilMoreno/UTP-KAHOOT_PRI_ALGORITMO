@@ -1,5 +1,7 @@
 'use strict';
 
+const { isValidPassword } = require('./passwordPolicy');
+
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const DOMAIN_PATTERN = /^(?=.{3,253}$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -37,13 +39,9 @@ const normalizePersonName = (value) => {
     return name && PERSON_NAME_PATTERN.test(name) ? name : null;
 };
 
-const isStrongPassword = (value) => (
-    typeof value === 'string' &&
-    value.length >= 12 &&
-    value.length <= 128 &&
-    /[A-Za-z]/.test(value) &&
-    /\d/.test(value)
-);
+// La política completa (longitud, mayúscula, minúscula, número, no común y sin datos personales)
+// vive en passwordPolicy.js; `context` ({ email, nombre, apellido }) activa la regla de datos personales.
+const isStrongPassword = (value, context = {}) => isValidPassword(value, context);
 
 const normalizeGenero = (value) => {
     if (value === undefined || value === null || value === '') return null;

@@ -28,6 +28,7 @@ test('normaliza correos válidos y rechaza entradas de inyección', () => {
 
 test('exige contraseñas de longitud y composición mínimas', () => {
     assert.equal(isStrongPassword('corta123'), false);
+    assert.equal(isStrongPassword('todominusculas123'), false, 'falta una mayúscula');
     assert.equal(isStrongPassword('sinNumerosPeroLarga'), false);
     assert.equal(isStrongPassword('ClaveSegura2026'), true);
 });

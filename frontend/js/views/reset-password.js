@@ -1,8 +1,7 @@
 import { h, setBusy, errorMessage } from '../ui.js';
 import { api } from '../api.js';
 import { authShell } from './auth-shell.js';
-
-const PASSWORD_HINT = 'Mínimo 10 caracteres, con mayúsculas, minúsculas y números.';
+import { createPasswordField, createPasswordConfirm } from '../password-field.js';
 
 export default async function resetPasswordView({ root, query }) {
     document.title = 'Restablecer contraseña · codeInt';
@@ -25,14 +24,21 @@ export default async function resetPasswordView({ root, query }) {
         return;
     }
 
-    const password = h('input', {
-        class: 'input', id: 'password', type: 'password', autocomplete: 'new-password', required: true
-    });
-    const confirmation = h('input', {
-        class: 'input', id: 'password2', type: 'password', autocomplete: 'new-password', required: true
-    });
     const errorBox = h('div', { role: 'alert', hidden: true });
     const submit = h('button', { class: 'btn block', type: 'submit' }, 'Restablecer contraseña');
+    const submitHint = h('p', { class: 'small muted', id: 'reset-submit-hint' });
+    submit.setAttribute('aria-describedby', 'reset-submit-hint');
+    // El servidor además comprueba que no incluya tu nombre o correo (el enlace no los entrega al navegador).
+    const passwordField = createPasswordField({ id: 'password', label: 'Nueva contraseña', onChange: () => syncSubmit() });
+    const confirmField = createPasswordConfirm({ id: 'password2', label: 'Repite la nueva contraseña', primary: passwordField.input, onChange: () => syncSubmit() });
+    const password = passwordField.input;
+    const confirmation = confirmField.input;
+    function syncSubmit() {
+        const ready = passwordField.isValid() && confirmField.matches();
+        submit.disabled = !ready;
+        submitHint.textContent = ready ? '' : 'Completa los requisitos y repite la contraseña para continuar.';
+    }
+    syncSubmit();
 
     const showError = (message) => {
         errorBox.className = 'alert error';
@@ -62,13 +68,11 @@ export default async function resetPasswordView({ root, query }) {
             }
         }
     },
-    h('div', { class: 'field' },
-        h('label', { for: 'password' }, 'Nueva contraseña'), password,
-        h('span', { class: 'hint' }, PASSWORD_HINT)),
-    h('div', { class: 'field' },
-        h('label', { for: 'password2' }, 'Repite la nueva contraseña'), confirmation),
+    passwordField.element,
+    confirmField.element,
     errorBox,
-    submit);
+    submit,
+    submitHint);
 
     card.append(form,
         h('p', { class: 'small muted', style: { marginTop: '16px', marginBottom: 0 } },

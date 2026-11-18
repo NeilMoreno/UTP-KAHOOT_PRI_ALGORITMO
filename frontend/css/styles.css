@@ -838,6 +838,28 @@ h3 { font-size: 1rem; }
 .syl-option input[type="radio"] { width: 20px; height: 20px; accent-color: var(--positive); }
 @media (max-width: 640px) { .syl-rubric-row { grid-template-columns: 1fr; } }
 
+/* Contraseña: checklist en vivo */
+.pw-field { display: grid; gap: 8px; }
+.pw-input { display: flex; gap: 8px; }
+.pw-input .input { flex: 1; min-width: 0; }
+.pw-toggle { flex: none; min-height: 42px; padding: 0 14px; border: 2px solid var(--control); border-radius: var(--radius-control); background: transparent; color: var(--text); font: 700 .85rem var(--font-display); cursor: pointer; }
+.pw-toggle:hover { background: var(--raised); }
+.pw-meter { display: flex; align-items: center; gap: 10px; }
+.pw-bars { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; width: 140px; }
+.pw-bars i { height: 8px; border-radius: 4px; background: var(--raised); box-shadow: inset 0 0 0 1px var(--border); }
+.pw-bars i.on.level-1 { background: var(--negative); box-shadow: none; }
+.pw-bars i.on.level-2 { background: var(--warning); box-shadow: none; }
+.pw-bars i.on.level-3, .pw-bars i.on.level-4 { background: var(--positive); box-shadow: none; }
+.pw-strength-label { font-size: .85rem; font-weight: 800; color: var(--muted); }
+.pw-rules { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.pw-rule { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: .9rem; }
+.pw-mark { display: grid; place-items: center; width: 20px; height: 20px; flex: none; border-radius: 50%; box-shadow: inset 0 0 0 2px var(--control); color: var(--primary-ink); }
+.pw-rule.is-ok { color: var(--text); }
+.pw-rule.is-ok .pw-mark { background: var(--positive); box-shadow: none; }
+.pw-match { min-height: 1.2em; margin: 0; font-size: .88rem; font-weight: 700; color: var(--muted); }
+.pw-match.is-ok { color: var(--positive); }
+@media (max-width: 480px) { .pw-bars { width: 96px; } }
+
 /* Landing pública */
 .landing { min-height: 100dvh; display: grid; grid-template-rows: auto 1fr auto; background: radial-gradient(1200px 500px at 80% -10%, var(--accent-soft), transparent 70%), var(--ground); }
 .landing-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: min(100%, 1160px); margin: 0 auto; padding: 18px 20px; }

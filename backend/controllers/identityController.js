@@ -7,7 +7,6 @@ const {
     normalizePersonName,
     normalizeEmail,
     normalizeDomain,
-    isStrongPassword,
     normalizeGenero,
     isUuid
 } = require('../utils/validation');
@@ -17,6 +16,7 @@ const {
     isOpaqueToken
 } = require('../utils/securityTokens');
 const { generateToken } = require('../services/tokenService');
+const { passwordProblems } = require('../utils/passwordPolicy');
 const {
     buildInvitationUrl,
     buildPasswordResetUrl,
@@ -24,6 +24,14 @@ const {
     sendPasswordResetEmail
 } = require('../services/emailService');
 const { getRequestIp, recordSecurityEvent } = require('../services/securityAuditService');
+
+// 400 que dice qué requisitos faltan (el frontend ya los muestra, pero la API no confía en él).
+const weakPasswordResponse = (res, problems) => res.status(400).json({
+    success: false,
+    error: 'WEAK_PASSWORD',
+    message: 'La contraseña no cumple los requisitos de seguridad.',
+    requisitos_pendientes: problems
+});
 
 const getBcryptRounds = () => (
     Math.min(14, Math.max(10, Number.parseInt(process.env.BCRYPT_ROUNDS || '12', 10)))
@@ -64,12 +72,14 @@ const registerByInvitation = async (req, res, next) => {
         const apellido = normalizePersonName(body.apellido);
         const genero = normalizeGenero(body.genero);
 
-        if (!isOpaqueToken(invitationToken) || !nombre || !apellido || !genero || !isStrongPassword(body.password)) {
+        if (!isOpaqueToken(invitationToken) || !nombre || !apellido || !genero || typeof body.password !== 'string') {
             return res.status(400).json({
                 success: false,
                 message: 'La invitación o los datos de registro no tienen un formato válido.'
             });
         }
+        const basicProblems = passwordProblems(body.password);
+        if (basicProblems.length > 0) return weakPasswordResponse(res, basicProblems);
 
         const tokenHash = hashOpaqueToken(invitationToken);
         client = await getClient();
@@ -93,6 +103,12 @@ const registerByInvitation = async (req, res, next) => {
         }
 
         const invitation = invitationResult.rows[0];
+        const contextProblems = passwordProblems(body.password, { email: invitation.email, nombre, apellido });
+        if (contextProblems.length > 0) {
+            await client.query('ROLLBACK');
+            transactionStarted = false;
+            return weakPasswordResponse(res, contextProblems);
+        }
         if (invitation.estado !== 'pendiente') {
             await client.query('ROLLBACK');
             transactionStarted = false;
@@ -671,14 +687,16 @@ const resetPassword = async (req, res, next) => {
     try {
         const token = req.body?.token;
         const newPassword = req.body?.new_password;
-        if (!isOpaqueToken(token) || !isStrongPassword(newPassword)) {
+        if (!isOpaqueToken(token) || typeof newPassword !== 'string') {
             return res.status(400).json({ success: false, message: 'Token o nueva contraseña no válidos.' });
         }
+        const resetBasicProblems = passwordProblems(newPassword);
+        if (resetBasicProblems.length > 0) return weakPasswordResponse(res, resetBasicProblems);
 
         await client.query('BEGIN');
         transactionStarted = true;
         const result = await client.query(`
-            SELECT t.id_token_cuenta, t.id_usuario, u.id_institucion
+            SELECT t.id_token_cuenta, t.id_usuario, u.id_institucion, u.email, u.nombre, u.apellido
             FROM token_cuenta t
             JOIN usuario u ON u.id_usuario = t.id_usuario
             WHERE t.token_hash = $1
@@ -696,6 +714,12 @@ const resetPassword = async (req, res, next) => {
         }
 
         const record = result.rows[0];
+        const resetContextProblems = passwordProblems(newPassword, { email: record.email, nombre: record.nombre, apellido: record.apellido });
+        if (resetContextProblems.length > 0) {
+            await client.query('ROLLBACK');
+            transactionStarted = false;
+            return weakPasswordResponse(res, resetContextProblems);
+        }
         const passwordHash = await bcrypt.hash(newPassword, getBcryptRounds());
         await client.query(`
             UPDATE usuario
@@ -743,9 +767,13 @@ const changePassword = async (req, res, next) => {
         const currentPassword = req.body?.current_password;
         const newPassword = req.body?.new_password;
         if (typeof currentPassword !== 'string' || currentPassword.length === 0 || currentPassword.length > 128
-            || !isStrongPassword(newPassword)) {
+            || typeof newPassword !== 'string') {
             return res.status(400).json({ success: false, message: 'Las contraseñas no tienen un formato válido.' });
         }
+        const changeProblems = passwordProblems(newPassword, {
+            email: req.user.email, nombre: req.user.nombre, apellido: req.user.apellido
+        });
+        if (changeProblems.length > 0) return weakPasswordResponse(res, changeProblems);
 
         await client.query('BEGIN');
         transactionStarted = true;

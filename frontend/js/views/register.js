@@ -2,8 +2,7 @@ import { h, setBusy, errorMessage } from '../ui.js';
 import { api } from '../api.js';
 import { navigate } from '../router.js';
 import { authShell } from './auth-shell.js';
-
-const PASSWORD_HINT = 'Mínimo 10 caracteres, con mayúsculas, minúsculas y números.';
+import { createPasswordField, createPasswordConfirm } from '../password-field.js';
 
 export default async function registerView({ root, query }) {
     document.title = 'Crear cuenta · codeInt';
@@ -56,7 +55,26 @@ export default async function registerView({ root, query }) {
             h('option', { value: 'masculino' }, 'Masculino'));
         const error = h('div', { role: 'alert', hidden: true });
         const submit = h('button', { class: 'btn block', type: 'submit' }, 'Crear cuenta');
-        const form = h('form', {
+        const submitHint = h('p', { class: 'small muted', id: 'register-submit-hint' });
+        submit.setAttribute('aria-describedby', 'register-submit-hint');
+        let form = null;
+        // La regla "no incluye tu nombre ni tu correo" usa lo que se va escribiendo en el formulario.
+        const passwordField = createPasswordField({
+            id: 'password', label: 'Contraseña',
+            getContext: () => ({
+                email: invitation.email,
+                nombre: form?.querySelector('#nombre')?.value || '',
+                apellido: form?.querySelector('#apellido')?.value || ''
+            }),
+            onChange: () => syncSubmit()
+        });
+        const confirmField = createPasswordConfirm({ id: 'password2', primary: passwordField.input, onChange: () => syncSubmit() });
+        function syncSubmit() {
+            const ready = passwordField.isValid() && confirmField.matches();
+            submit.disabled = !ready;
+            submitHint.textContent = ready ? '' : 'Completa los requisitos de la contraseña y repítela para continuar.';
+        }
+        form = h('form', {
             onSubmit: async (event) => {
                 event.preventDefault();
                 error.hidden = true;
@@ -95,9 +113,13 @@ export default async function registerView({ root, query }) {
         field('nombre', 'Nombre', { autocomplete: 'given-name' }),
         field('apellido', 'Apellido', { autocomplete: 'family-name' }),
         h('div', { class: 'field' }, h('label', { for: 'genero' }, 'Género'), genero),
-        field('password', 'Contraseña', { type: 'password', autocomplete: 'new-password' }, PASSWORD_HINT),
-        field('password2', 'Repite la contraseña', { type: 'password', autocomplete: 'new-password' }),
-        error, submit);
+        passwordField.element,
+        confirmField.element,
+        error, submit, submitHint);
+        // El nombre y el apellido forman parte de la regla de datos personales: se reevalúa al escribirlos.
+        form.querySelector('#nombre').addEventListener('input', () => passwordField.refresh());
+        form.querySelector('#apellido').addEventListener('input', () => passwordField.refresh());
+        syncSubmit();
         card.replaceChildren(form);
     };
 

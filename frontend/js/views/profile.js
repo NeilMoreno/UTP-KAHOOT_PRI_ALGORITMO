@@ -2,8 +2,8 @@ import { h, icon, setBusy, errorMessage, toast, openModal } from '../ui.js';
 import { api, tokenStore } from '../api.js';
 import { state, logout } from '../state.js';
 import { navigate } from '../router.js';
+import { createPasswordField, createPasswordConfirm } from '../password-field.js';
 
-const PASSWORD_HINT = 'Mínimo 10 caracteres, con mayúsculas, minúsculas y números.';
 const ROLE_LABEL = {
     estudiante: 'Estudiante',
     docente: 'Docente',
@@ -72,14 +72,25 @@ const buildPasswordForm = () => {
     const currentPassword = h('input', {
         class: 'input', id: 'current_password', type: 'password', autocomplete: 'current-password', required: true
     });
-    const newPassword = h('input', {
-        class: 'input', id: 'new_password', type: 'password', autocomplete: 'new-password', required: true
-    });
-    const confirmation = h('input', {
-        class: 'input', id: 'confirm_password', type: 'password', autocomplete: 'new-password', required: true
-    });
     const errorBox = h('div', { role: 'alert', hidden: true });
     const submit = h('button', { class: 'btn', type: 'submit' }, 'Cambiar contraseña');
+    const submitHint = h('p', { class: 'small muted', id: 'profile-pw-hint' });
+    submit.setAttribute('aria-describedby', 'profile-pw-hint');
+    const passwordField = createPasswordField({
+        id: 'new_password', label: 'Nueva contraseña',
+        getContext: () => ({ email: state.user?.email, nombre: state.user?.nombre, apellido: state.user?.apellido }),
+        onChange: () => syncSubmit()
+    });
+    const confirmField = createPasswordConfirm({ id: 'confirm_password', label: 'Repite la nueva contraseña', primary: passwordField.input, onChange: () => syncSubmit() });
+    const newPassword = passwordField.input;
+    const confirmation = confirmField.input;
+    currentPassword.addEventListener('input', () => syncSubmit());
+    function syncSubmit() {
+        const ready = currentPassword.value.length > 0 && passwordField.isValid() && confirmField.matches();
+        submit.disabled = !ready;
+        submitHint.textContent = ready ? '' : 'Escribe tu contraseña actual y una nueva que cumpla los requisitos.';
+    }
+    syncSubmit();
 
     return h('form', {
         onSubmit: async (event) => {
@@ -105,6 +116,8 @@ const buildPasswordForm = () => {
                 currentPassword.value = '';
                 newPassword.value = '';
                 confirmation.value = '';
+                passwordField.refresh();
+                confirmField.refresh();
             } catch (error) {
                 errorBox.className = 'alert error';
                 errorBox.hidden = false;
@@ -115,11 +128,11 @@ const buildPasswordForm = () => {
         }
     },
     field('current_password', 'Contraseña actual', currentPassword),
-    h('div', { class: 'form-grid' },
-        field('new_password', 'Nueva contraseña', newPassword, PASSWORD_HINT),
-        field('confirm_password', 'Repite la nueva contraseña', confirmation)),
+    passwordField.element,
+    confirmField.element,
     errorBox,
-    h('div', { class: 'form-actions' }, submit));
+    h('div', { class: 'form-actions' }, submit),
+    submitHint);
 };
 
 const buildSessionPanel = () => {
