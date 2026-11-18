@@ -2,14 +2,15 @@
 
 Plataforma EdTech gamificada para aprender algoritmos en PSeInt, con evaluación asistida por IA y salas multijugador síncronas estilo Kahoot.
 
-- Frontend: HTML, CSS y JavaScript modular (sin build, servido por el backend).
+- Frontend: HTML, CSS y JavaScript modular, sin framework ni paso de build (lo sirve el backend). Las fuentes están versionadas en `frontend/fonts/`; `npm run build:assets` solo las regenera.
 - Backend: Node.js, Express, Socket.IO y PostgreSQL.
 - Estado y plan de cierre: [`CODEINT_PLAN_IMPLEMENTACION.md`](CODEINT_PLAN_IMPLEMENTACION.md).
 
 ## Funcionalidad disponible
 
-- **Estudiante:** centro de misiones, mapa de 7 mundos, editor PSeInt, validación sintáctica, evaluación con IA, XP, niveles, logros y salas Kahoot desde el móvil.
-- **Docente:** panel, cursos con contenido base, matrícula individual y CSV, edición de ejercicios, host de salas Kahoot y analíticas por curso, estudiante, errores y salas.
+- **Público:** landing con acceso por PIN de sala (pasa por el login) y pantallas de cuenta; registro solo por invitación.
+- **Estudiante:** centro de misiones con "continuar donde quedaste", mapa de mundos, editor PSeInt con validación sintáctica, evaluación con IA, XP, niveles, **racha diaria**, **misiones semanales**, **logros** (ejercicios, mundos, XP, salas, podio y velocidad), **ranking por curso**, **avatar pixel** personalizable (clases tech, piezas por nivel o misión) y salas Kahoot desde el móvil.
+- **Docente:** panel, cursos con **código generado desde el nombre**, contenido base o **generado desde el sílabo con IA** (subir PDF → borrador → editar → publicar), matrícula individual y CSV, edición de ejercicios, host de salas Kahoot y analíticas por curso, estudiante, errores y salas.
 - **Superadministrador:** usuarios, invitaciones, instituciones y dominios, licencias y cuotas de IA con consumo por docente.
 - **Recorrido sugerido:** [`DEMO_GUION.md`](DEMO_GUION.md).
 
@@ -78,7 +79,7 @@ El correo fijo es `admin@codeintcorp.com`. La contraseña se solicita de forma o
 ### 5. Separar la cuenta de runtime de la cuenta propietaria
 
 ```powershell
-npm run db:provision-app-db-role
+npm run db:provision-app-role
 ```
 
 Crea o rota `codeint_app` con privilegios mínimos y actualiza `.env` sin mostrar la contraseña. La API usa `DATABASE_URL`; las migraciones usan `MIGRATION_DATABASE_URL`.
@@ -109,7 +110,9 @@ Para desarrollo con recarga automática: `npm run dev`.
 | `FRONTEND_INVITATION_URL` | URL del frontend para invitaciones; admite rutas con `#/`. |
 | `FRONTEND_PASSWORD_RESET_URL` | URL del frontend para recuperación de contraseña. |
 | `EMAIL_PROVIDER` | `disabled` en local; `cloudflare` para correo real. |
-| `GEMINI_API_KEY`, `GEMINI_MODEL` | Evaluación con IA. Sin clave real, el envío a IA no funciona. |
+| `GEMINI_API_KEY`, `GEMINI_MODEL` | Evaluación y generación con IA. La clave gratuita se obtiene en [Google AI Studio](https://aistudio.google.com) (sin facturación). Con ella los modelos `flash` suelen saturarse; se recomienda `gemini-3.5-flash-lite`. Sin clave válida la IA no funciona. |
+| `GEMINI_SYLLABUS_TIMEOUT_MS`, `GEMINI_SYLLABUS_MAX_OUTPUT_TOKENS`, `GEMINI_SYLLABUS_TOKEN_RESERVATION` | Ajustes de la generación desde el sílabo (por defecto 120000 ms, 24000 y 60000 tokens). |
+| `TEST_DB_NAME` | Base de pruebas de integración (por defecto `codeint_test`; su nombre debe contener `test`). |
 | `ALLOW_DEV_INVITATION_TOKEN_RESPONSE` | Solo desarrollo: devuelve el enlace de invitación en la API. |
 | `ALLOW_DEV_PASSWORD_RESET_TOKEN_RESPONSE` | Solo desarrollo y con `EMAIL_PROVIDER=disabled`: devuelve `dev_reset_url`. Nunca debe activarse en un entorno compartido. |
 
@@ -131,10 +134,22 @@ Referencia completa: [`.env.example`](.env.example).
 | `npm run db:provision-app-role` | Crea o rota `codeint_app`. |
 | `npm run db:bootstrap-superadmin:prompt` | Crea o rota el superadministrador. |
 | `npm run security:production-check` | Comprueba requisitos de producción. |
-| `npm test` | Pruebas unitarias. |
-| `$env:RUN_DB_TESTS='1'; npm test` | Pruebas de integración con PostgreSQL. |
+| `npm test` | Pruebas unitarias (las de integración se omiten sin `RUN_DB_TESTS=1`). |
+| `npm run db:test-setup` | Prepara la base de pruebas `codeint_test`: la crea, aplica esquema y migraciones, permisos, datos demo y un superadministrador de pruebas. Es idempotente. |
+| `npm run test:integration` | Ejecuta toda la suite contra `codeint_test` (nunca contra la base de desarrollo). |
+| `npm run build:assets` | Regenera las fuentes autoalojadas desde `node_modules`. |
 
-> Las pruebas de integración usan la base configurada y crean registros temporales. Usa una base de pruebas, no la de demostración.
+## Pruebas
+
+```powershell
+npm test                    # unitarias, no requieren base de datos
+npm run db:test-setup       # una vez: prepara codeint_test
+npm run test:integration    # suite completa contra codeint_test
+```
+
+`test:integration` sobrescribe solo el entorno del proceso (`scripts/with-test-db.js`): tu `.env` no cambia y la base de desarrollo no se toca. Para otro comando contra la base de pruebas: `node scripts/with-test-db.js <comando>`. El superadministrador de pruebas (`admin@codeintcorp.com` / `codeint123`) se siembra con `scripts/seed-test-superadmin.js`, que se niega a correr sin `ALLOW_TEST_SUPERADMIN=1` o en una base cuyo nombre no contenga `test`.
+
+> No ejecutes `db:provision-app-role` para la base de pruebas: **rota la contraseña de `codeint_app` y reescribe `.env`**. `db:test-setup` aplica los mismos permisos sin hacerlo.
 
 ## Documentación
 

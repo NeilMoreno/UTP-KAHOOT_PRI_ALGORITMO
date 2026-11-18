@@ -8,50 +8,44 @@ web
 
 ## Users
 
-El usuario principal de esta etapa es el estudiante de la UTP que practica algoritmos y pseudocodigo en PSeInt. El sistema tambien contempla docentes que gestionan cursos y salas, y superadministradores que gobiernan instituciones, identidades y cuotas de IA.
+Estudiantes de cursos de programación (hoy en una universidad; el diseño contempla también colegios), docentes que gestionan cursos, salas en vivo y analíticas, y superadministradores que gobiernan instituciones, invitaciones, cuotas de IA y estadísticas.
 
 ## Product Purpose
 
-codeInt convierte el aprendizaje progresivo de algoritmos en una experiencia practica: el estudiante recorre mundos, resuelve ejercicios, valida PSeInt, recibe evaluacion asistida por IA y participa en partidas multijugador. El exito significa que puede reconocer su siguiente actividad, practicar sin perder su trabajo y ver un progreso academico comprensible.
+codeInt convierte el aprendizaje progresivo de la programación en una experiencia de juego con base académica real: el estudiante recorre mundos, resuelve ejercicios, recibe evaluación asistida por IA, mantiene una racha, completa misiones semanales, personaliza su avatar y compite en salas en vivo. El docente puede subir su **sílabo** y dejar que la IA proponga un curso a su medida que él revisa y publica. El éxito significa que el estudiante sabe qué hacer a continuación, practica sin perder su trabajo y ve un progreso comprensible.
 
 ## Positioning
 
-El producto une una ruta curricular de PSeInt, evaluacion local previa a la IA, progresion por mundos y dinamicas tipo Kahoot dentro de una misma identidad y cuenta institucional.
+Una misma cuenta institucional reúne una ruta curricular, evaluación local previa a la IA, gamificación (XP, niveles, logros, racha, misiones, ranking por curso) y dinámicas tipo Kahoot. Lo diferencial: el curso nace del sílabo del docente y la IA corrige con la rúbrica de ese sílabo.
 
 ## Operating Context
 
-La aplicacion se usa en navegador, en sesiones de clase y estudio individual. Los estudiantes alternan entre el panel de progreso, el mapa del curso, listas de ejercicios y un editor de pseudocodigo; docentes y administradores usan flujos de gestion respaldados por la API.
+Navegador, en clase y en estudio individual (también móvil para las salas). Los datos académicos, la gamificación, la identidad y las salas vienen del backend (Express, PostgreSQL, JWT y Socket.IO); la interfaz no sustituye nada con datos ficticios.
 
 ## Capabilities and Constraints
 
-- Frontend existente en HTML, CSS y JavaScript modular sin framework.
-- Backend Express con PostgreSQL, JWT, Socket.IO y rutas REST bajo `/api`.
-- Los datos academicos, la gamificacion, la identidad y las salas provienen del backend; la interfaz no debe sustituirlos con datos ficticios.
-- La personalizacion de personaje se implementa inicialmente como preferencia visual local y reversible; su persistencia en servidor queda como decision futura.
-- El rediseño se aplica primero a la experiencia completa del estudiante. Las vistas aun no implementadas para otros roles deben declarar honestamente su estado.
+- Frontend en HTML, CSS y JavaScript modular sin framework; fuentes autoalojadas (`npm run build:assets` solo para regenerarlas).
+- El avatar se guarda en el servidor (`usuario.avatar_config`) y se valida contra un catálogo cerrado; las piezas se desbloquean por nivel o misión.
+- La generación de cursos con IA usa Gemini; los borradores nunca se publican solos y consumen la cuota de IA del docente.
+- Las salas en vivo viven en la memoria de una sola instancia del servidor (se cancelan al reiniciar).
+- Hoy los cursos son de PSeInt; el soporte para Python, JavaScript, Java y C/C++ está planificado.
+- Hoy el registro es solo por invitación; la fecha de nacimiento y la aceptación de términos están planificadas.
 
 ## Brand Commitments
 
-- Nombre del producto: codeInt.
-- Referencia visual aportada por el usuario: `C:\Users\HP\Downloads\codeInt-personajes.html`.
-- La referencia establece un campus de programacion con identidad espacial, personajes, azul como color principal y morado como color secundario.
-- La interfaz debe conservar una voz educativa directa, energica y en español.
-
-## Evidence on Hand
-
-- Implementacion real en `frontend/`, `backend/`, `database/` y `tests/`.
-- Documentacion academica y tecnica en el repositorio.
-- Prototipo funcional autocontenido aportado por el usuario; sus datos de demostracion no constituyen evidencia de funciones productivas.
-- No hay ilustraciones raster ni fotografias oficiales. Los personajes del prototipo son vectores propios embebidos.
+- Nombre: codeInt. Voz educativa directa, enérgica y en español.
+- Identidad: arcade de programación (violeta noche, amarillo de acción, Baloo 2 + Nunito, avatars pixel). Ver `DESIGN.md`.
 
 ## Product Principles
 
 1. El siguiente paso del estudiante siempre debe ser evidente.
-2. La motivacion visual nunca debe ocultar el estado academico real.
+2. La motivación visual nunca debe ocultar el estado académico real.
 3. El progreso, la cuota de IA y los bloqueos se explican con datos y acciones concretas.
 4. El trabajo escrito por el estudiante se preserva ante interrupciones y errores.
-5. Las funciones incompletas se presentan con honestidad, sin simular resultados.
+5. La IA propone y el docente decide: nada generado llega al alumno sin revisión.
+6. Las funciones incompletas se presentan con honestidad, sin simular resultados.
+7. La competencia es sana: el ranking muestra el top y la propia posición, sin humillar al resto.
 
 ## Accessibility & Inclusion
 
-La experiencia debe funcionar con teclado, foco visible, nombres accesibles, contraste WCAG AA, objetivos tactiles de al menos 44 px y una composicion util en escritorio y movil. El movimiento debe respetar `prefers-reduced-motion`.
+Teclado completo, foco visible, nombres accesibles, contraste WCAG AA, objetivos táctiles de al menos 44 px, forma además de color en los estados y `prefers-reduced-motion` respetado.
