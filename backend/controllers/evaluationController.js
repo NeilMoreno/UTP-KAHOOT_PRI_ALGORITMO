@@ -64,6 +64,7 @@ const getExerciseContext = async (idExercise, user) => {
     await getAuthorizedWorld(authorized.id_mundo, user, { enforceSequence: true });
     const result = await query(`
         SELECT e.id_ejercicio, e.id_mundo, e.id_curso, e.titulo, e.enunciado,
+               e.rubrica, e.fuente_silabo, e.nivel,
                e.xp_recompensa, m.orden AS mundo_orden,
                c.id_docente, c.id_institucion
           FROM ejercicio e

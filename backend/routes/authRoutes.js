@@ -23,6 +23,7 @@ router.post('/password/reset', authLimiter, identityController.resetPassword);
 // Consulta de perfil del usuario logueado (incluye gamificación si es estudiante)
 router.get('/me', authenticateJWT, authController.getMe);
 router.patch('/me', authenticateJWT, authController.updateMe);
+router.patch('/me/avatar', authenticateJWT, authController.updateAvatar);
 router.patch('/password', authenticateJWT, authLimiter, identityController.changePassword);
 router.post('/logout-all', authenticateJWT, identityController.logoutAll);
 

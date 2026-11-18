@@ -136,6 +136,54 @@ const getMundosByCurso = async (req, res, next) => {
 };
 
 /**
+ * Primer ejercicio sin aprobar del curso, en el orden de los mundos.
+ * Como los mundos se desbloquean en secuencia, ese ejercicio siempre está disponible.
+ * GET /api/mundos/curso/:id_curso/siguiente  (solo estudiantes)
+ */
+const getSiguienteEjercicio = async (req, res, next) => {
+    try {
+        const { id_curso } = req.params;
+        const user = req.user;
+        if (user.rol !== 'estudiante') {
+            return res.status(403).json({ success: false, message: 'Solo los estudiantes tienen una ruta de ejercicios.' });
+        }
+        await getAuthorizedCourse(id_curso, user);
+
+        const matRes = await query(
+            'SELECT id_matricula FROM matricula WHERE id_curso = $1 AND id_estudiante = $2 AND estado = \'activa\' LIMIT 1;',
+            [id_curso, user.id_usuario]
+        );
+        if (matRes.rowCount === 0) {
+            return res.status(403).json({ success: false, message: 'No estás matriculado en este curso.' });
+        }
+
+        const result = await query(`
+            SELECT ej.id_ejercicio, ej.titulo, ej.orden AS orden_ejercicio,
+                   m.id_mundo, m.nombre AS mundo_nombre, m.orden AS orden_mundo,
+                   (SELECT count(*) FROM ejercicio x WHERE x.id_mundo = m.id_mundo)::INTEGER AS total_en_mundo
+              FROM ejercicio ej
+              JOIN mundo m ON m.id_mundo = ej.id_mundo
+             WHERE m.id_curso = $1
+               AND NOT EXISTS (
+                   SELECT 1
+                     FROM envio_ejercicio ee
+                     JOIN evaluacion_ia ev ON ev.id_envio_ejercicio = ee.id_envio_ejercicio
+                    WHERE ee.id_ejercicio = ej.id_ejercicio
+                      AND ee.id_matricula = $2
+                      AND ev.puntaje >= 70
+               )
+             ORDER BY m.orden ASC, ej.orden ASC
+             LIMIT 1;
+        `, [id_curso, matRes.rows[0].id_matricula]);
+
+        // data = null cuando ya aprobó todos los ejercicios del curso
+        return res.json({ success: true, data: result.rows[0] || null });
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
  * Detalle de un mundo temático
  * GET /api/mundos/:id_mundo
  */
@@ -173,5 +221,6 @@ const getMundoById = async (req, res, next) => {
 
 module.exports = {
     getMundosByCurso,
+    getSiguienteEjercicio,
     getMundoById
 };

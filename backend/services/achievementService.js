@@ -3,6 +3,9 @@
 // Logros e insignias del catálogo `logro`, calculados a partir de métricas
 // obtenidas al vuelo (no se almacenan datos derivados).
 
+// Una respuesta correcta en menos de este tiempo cuenta como "rápida" (tiempo_respuesta está en milisegundos).
+const FAST_ANSWER_MS = 3000;
+
 const METRICS_SQL = `
     SELECT
         (SELECT COALESCE(sum(cantidad), 0)
@@ -24,7 +27,17 @@ const METRICS_SQL = `
            ) por_curso)::bigint AS mundos_completados,
         (SELECT count(DISTINCT id_sala)
            FROM participante_sala
-          WHERE id_estudiante = $1)::bigint AS partidas_participadas
+          WHERE id_estudiante = $1)::bigint AS partidas_participadas,
+        (SELECT count(DISTINCT id_sala)
+           FROM participante_sala
+          WHERE id_estudiante = $1 AND posicion_final BETWEEN 1 AND 3 AND puntaje_final > 0)::bigint AS podios_sala,
+        (SELECT count(DISTINCT id_sala)
+           FROM participante_sala
+          WHERE id_estudiante = $1 AND posicion_final = 1 AND puntaje_final > 0)::bigint AS victorias_sala,
+        (SELECT count(*)
+           FROM respuesta_sala rs
+           JOIN participante_sala ps ON ps.id_participante = rs.id_participante
+          WHERE ps.id_estudiante = $1 AND rs.puntaje_obtenido > 0 AND rs.tiempo_respuesta <= ${FAST_ANSWER_MS})::bigint AS respuestas_rapidas
 `;
 
 const CURRENT_VALUE_SQL = `
@@ -33,6 +46,9 @@ const CURRENT_VALUE_SQL = `
         WHEN 'ejercicios_aprobados' THEN m.ejercicios_aprobados
         WHEN 'mundos_completados' THEN m.mundos_completados
         WHEN 'partidas_participadas' THEN m.partidas_participadas
+        WHEN 'podios_sala' THEN m.podios_sala
+        WHEN 'victorias_sala' THEN m.victorias_sala
+        WHEN 'respuestas_rapidas' THEN m.respuestas_rapidas
     END
 `;
 

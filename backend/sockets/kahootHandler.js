@@ -19,6 +19,7 @@ const {
 } = require('../utils/kahootScoring');
 const { createRoom, loadWaitingRoom } = require('../services/salaService');
 const { unlockAchievements } = require('../services/achievementService');
+const { resolveAvatar } = require('../utils/avatarCatalog');
 
 // Map<pin, RoomState>
 const activeRooms = new Map();
@@ -161,6 +162,7 @@ const questionPayload = (room, q, index) => ({
 const playerList = (room) => Array.from(room.participantes.values()).map((p) => ({
     id_participante: p.id_participante,
     nick: p.nombre,
+    avatar: p.avatar,
     conectado: Boolean(p.socketId)
 }));
 
@@ -274,6 +276,7 @@ const endQuestion = (io, room) => {
         ranking: ranked.slice(0, 5).map((p) => ({
             posicion: p.posicionActual,
             nick: p.nombre,
+            avatar: p.avatar,
             puntaje: p.puntajeTotal
         })),
         esUltimaPregunta: room.preguntaActualIndex >= room.preguntas.length - 1
@@ -385,6 +388,7 @@ const finishGame = async (io, room) => {
         const rankingCompleto = ranked.map((p, idx) => ({
             puesto: idx + 1,
             nick: p.nombre,
+            avatar: p.avatar,
             puntaje: p.puntajeTotal,
             xpGanado: p.xpGanado
         }));
@@ -535,6 +539,7 @@ const setupKahootSockets = (io) => {
                         id_estudiante: user.id_usuario,
                         id_matricula: enrollment.rows[0].id_matricula,
                         nombre: nick,
+                        avatar: resolveAvatar(user.avatar_config, user.id_usuario),
                         socketId: null,
                         puntajeTotal: 0,
                         tiempoTotalMs: 0,
@@ -577,6 +582,7 @@ const setupKahootSockets = (io) => {
                     id_participante: participant.id_participante,
                     id_estudiante: user.id_usuario,
                     nick: participant.nombre,
+                    avatar: participant.avatar,
                     totalPlayers: room.participantes.size
                 });
             } else {

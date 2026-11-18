@@ -29,6 +29,9 @@ const upload = multer({
 // Listado de cursos del usuario (estudiante ve sus cursos matriculados, docente ve los suyos)
 router.get('/', authenticateJWT, cursoController.getCursos);
 
+// Código de curso sugerido desde el nombre (debe ir antes de /:id_curso)
+router.get('/codigo-sugerido', authenticateJWT, authorizeRoles('docente', 'superadministrador'), cursoController.getCodigoSugerido);
+
 // Detalle de un curso
 router.get('/:id_curso', authenticateJWT, cursoController.getCursoById);
 

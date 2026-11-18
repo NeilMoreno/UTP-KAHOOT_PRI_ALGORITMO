@@ -7,6 +7,8 @@ const bcrypt = require('bcryptjs');
 const { query, getClient } = require('../config/database');
 const { getEstudianteGamificationSummary } = require('../services/gamificationService');
 const { generateToken } = require('../services/tokenService');
+const { normalizeAvatar, lockedParts, resolveAvatar } = require('../utils/avatarCatalog');
+const { getMissionUnlocks } = require('../services/missionService');
 const { getRequestIp, recordSecurityEvent } = require('../services/securityAuditService');
 const { registerByInvitation } = require('./identityController');
 const {
@@ -18,6 +20,8 @@ const {
     buildGreeting,
     isUuid
 } = require('../utils/validation');
+
+const avatarOf = (user) => resolveAvatar(user.avatar_config, user.id_usuario);
 
 const DUMMY_BCRYPT_HASH = '$2b$12$KIXxP9z4XG9jEIt8hWfO5.4W4P5sP9D2gXbXFlJ8WqP0YwXGQxH6K';
 
@@ -49,6 +53,7 @@ const register = registerByInvitation;
         const userSql = `
             SELECT u.id_usuario, u.id_institucion, u.nombre, u.apellido, u.email,
                    u.password_hash, u.rol, u.genero, u.estado, u.correo_verificado, u.token_version,
+                   u.avatar_config,
                    i.nombre AS institucion_nombre, i.estado AS institucion_estado
             FROM usuario u
             LEFT JOIN institucion i ON i.id_institucion = u.id_institucion
@@ -115,6 +120,7 @@ const register = registerByInvitation;
                 genero: user.genero,
                 estado: user.estado,
                 correo_verificado: user.correo_verificado,
+                avatar: avatarOf(user),
                 gamification
             }
         });
@@ -149,9 +155,41 @@ const getMe = async (req, res, next) => {
                 genero: user.genero,
                 estado: user.estado,
                 correo_verificado: user.correo_verificado,
+                avatar: avatarOf(user),
                 gamification
             }
         });
+    } catch (error) {
+        next(error);
+    }
+};
+
+const updateAvatar = async (req, res, next) => {
+    try {
+        const avatar = normalizeAvatar(req.body);
+        if (!avatar) {
+            return res.status(400).json({ success: false, message: 'El avatar no tiene un valor válido.' });
+        }
+        // El nivel se lee del servidor: el cliente nunca decide qué piezas tiene desbloqueadas.
+        let level = 1;
+        if (req.user.rol === 'estudiante') {
+            const summary = await getEstudianteGamificationSummary(req.user.id_usuario);
+            level = Number(summary?.nivel_actual) || 1;
+        }
+        const unlocked = req.user.rol === 'estudiante' ? await getMissionUnlocks({ query }, req.user.id_usuario) : [];
+        const locked = lockedParts(avatar, level, unlocked);
+        if (locked.length > 0) {
+            return res.status(403).json({
+                success: false,
+                message: `Aún no desbloqueas: ${locked.map((item) => `${item.id} (nivel ${item.nivel})`).join(', ')}.`,
+                bloqueadas: locked
+            });
+        }
+        await query(
+            'UPDATE usuario SET avatar_config = $1::jsonb WHERE id_usuario = $2;',
+            [JSON.stringify(avatar), req.user.id_usuario]
+        );
+        return res.json({ success: true, avatar });
     } catch (error) {
         next(error);
     }
@@ -584,6 +622,8 @@ module.exports = {
     login,
     getMe,
     updateMe,
+    updateAvatar,
+    avatarOf,
     getInstituciones,
     getUsuarios,
     getAdminInstituciones,

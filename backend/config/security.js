@@ -57,6 +57,7 @@ const apiLimiter = limiter(15 * 60 * 1000, 300, 'Demasiadas solicitudes. Intente
 const authLimiter = limiter(15 * 60 * 1000, 10, 'Demasiados intentos de autenticación. Intente nuevamente en 15 minutos.');
 const uploadLimiter = limiter(60 * 60 * 1000, 20, 'Se alcanzó el límite de cargas. Intente nuevamente más tarde.');
 const aiEvaluationLimiter = limiter(60 * 60 * 1000, 30, 'Se alcanzó el límite de evaluaciones por IA. Intente nuevamente más tarde.');
+const aiGenerationLimiter = limiter(60 * 60 * 1000, 10, 'Se alcanzó el límite de generaciones por IA. Intente nuevamente más tarde.');
 
 const helmetHeaders = helmet({
     crossOriginEmbedderPolicy: { policy: 'credentialless' },
@@ -79,5 +80,6 @@ module.exports = {
     apiLimiter,
     authLimiter,
     uploadLimiter,
-    aiEvaluationLimiter
+    aiEvaluationLimiter,
+    aiGenerationLimiter
 };

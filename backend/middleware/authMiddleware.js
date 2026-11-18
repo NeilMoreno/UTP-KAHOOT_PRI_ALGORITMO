@@ -36,7 +36,7 @@ const loadUserFromToken = async (token) => {
     // Validar que el usuario exista y esté activo en PostgreSQL
     const sql = `
         SELECT u.id_usuario, u.id_institucion, u.nombre, u.apellido, u.email, u.rol, u.genero, u.estado,
-               u.correo_verificado, u.token_version,
+               u.correo_verificado, u.token_version, u.avatar_config,
                i.nombre AS institucion_nombre, i.estado AS institucion_estado
         FROM usuario u
         LEFT JOIN institucion i ON i.id_institucion = u.id_institucion

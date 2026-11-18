@@ -11,6 +11,9 @@ const { authenticateJWT } = require('../middleware/authMiddleware');
 // Listado de los 7 mundos con estado de desbloqueo dinámico para el curso
 router.get('/curso/:id_curso', authenticateJWT, mundoController.getMundosByCurso);
 
+// Siguiente ejercicio pendiente del estudiante en el curso
+router.get('/curso/:id_curso/siguiente', authenticateJWT, mundoController.getSiguienteEjercicio);
+
 // Detalle de un mundo específico
 router.get('/:id_mundo', authenticateJWT, mundoController.getMundoById);
 

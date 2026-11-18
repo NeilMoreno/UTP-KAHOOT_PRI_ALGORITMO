@@ -7,6 +7,7 @@ const { query, getClient } = require('../config/database');
 const { getAuthorizedCourse } = require('../services/authorizationService');
 const { normalizeEmail } = require('../utils/validation');
 const { BASE_WORLDS } = require('../config/baseContent');
+const { generateCourseCode, isValidCourseCode } = require('../utils/courseCode');
 
 /**
  * Listado de cursos según el rol del usuario
@@ -147,16 +148,43 @@ const getCursoById = async (req, res, next) => {
  * Creación de un nuevo curso
  * POST /api/cursos
  */
+// Sugiere un código libre para (institución, periodo) a partir del nombre del curso.
+const suggestCourseCode = async (idInstitucion, nombre, periodo) => {
+    const taken = await query(
+        'SELECT codigo_curso FROM curso WHERE id_institucion = $1 AND periodo = $2;',
+        [idInstitucion, String(periodo).trim()]
+    );
+    return generateCourseCode(nombre, taken.rows.map((row) => row.codigo_curso));
+};
+
+/**
+ * Vista previa del código automático mientras se escribe el nombre
+ * GET /api/cursos/codigo-sugerido?nombre=&periodo=
+ */
+const getCodigoSugerido = async (req, res, next) => {
+    try {
+        const nombre = String(req.query.nombre || '').trim().slice(0, 150);
+        const periodo = String(req.query.periodo || '').trim().slice(0, 20);
+        const idInstitucion = req.user.rol === 'superadministrador' ? req.query.id_institucion : req.user.id_institucion;
+        if (!nombre || !idInstitucion) return res.json({ success: true, codigo: null });
+        const codigo = await suggestCourseCode(idInstitucion, nombre, periodo);
+        return res.json({ success: true, codigo });
+    } catch (error) {
+        return next(error);
+    }
+};
+
 const createCurso = async (req, res, next) => {
     const client = await getClient();
     try {
-        const { nombre, codigo_curso, periodo } = req.body;
+        const { nombre, periodo } = req.body;
         const user = req.user;
 
-        if (!nombre || !codigo_curso || !periodo) {
+        // El código es opcional: si el docente no lo escribe se genera desde el nombre.
+        if (!nombre || !periodo) {
             return res.status(400).json({
                 success: false,
-                message: 'Los campos nombre, codigo_curso y periodo son obligatorios.'
+                message: 'Los campos nombre y periodo son obligatorios.'
             });
         }
 
@@ -198,6 +226,23 @@ const createCurso = async (req, res, next) => {
             }
         }
 
+        let codigo_curso = typeof req.body.codigo_curso === 'string' ? req.body.codigo_curso.trim().toUpperCase() : '';
+        if (codigo_curso && !isValidCourseCode(codigo_curso)) {
+            return res.status(400).json({
+                success: false,
+                message: 'El código del curso solo admite letras, números y guiones (2 a 20 caracteres).'
+            });
+        }
+        if (!codigo_curso) {
+            codigo_curso = await suggestCourseCode(id_institucion, nombre, periodo);
+            if (!codigo_curso) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'No se pudo generar un código con ese nombre. Escribe uno manualmente.'
+                });
+            }
+        }
+
         await client.query('BEGIN');
 
         // Insertar curso
@@ -210,7 +255,7 @@ const createCurso = async (req, res, next) => {
             id_institucion,
             id_docente,
             nombre.trim(),
-            codigo_curso.trim().toUpperCase(),
+            codigo_curso,
             periodo.trim()
         ]);
         const nuevoCurso = cursoRes.rows[0];
@@ -571,6 +616,7 @@ module.exports = {
     createCurso,
     updateCurso,
     getMatriculados,
+    getCodigoSugerido,
     matricularEstudiante,
     matricularCsvMasivo
 };
