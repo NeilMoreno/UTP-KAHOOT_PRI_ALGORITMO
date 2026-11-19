@@ -1,6 +1,6 @@
 'use strict';
 
-// Genera docs/DICCIONARIO_DATOS.md desde la base real (tablas, columnas, llaves y restricciones).
+// Genera DOCS/DICCIONARIO_DATOS.md desde la base real (tablas, columnas, llaves y restricciones).
 //   npm run docs:dictionary
 // Usa la cuenta de migraciones (solo lectura de catálogo). Así el diccionario nunca se desactualiza.
 
@@ -8,7 +8,7 @@ const fs = require('fs/promises');
 const path = require('path');
 const { migrationPool } = require('../backend/config/migrationDatabase');
 
-const out = path.resolve(__dirname, '../docs/DICCIONARIO_DATOS.md');
+const out = path.resolve(__dirname, '../DOCS/DICCIONARIO_DATOS.md');
 const cell = (value) => String(value ?? '').replace(/\|/g, '\\|').replace(/\s+/g, ' ').trim();
 
 const run = async () => {
@@ -62,7 +62,7 @@ const run = async () => {
 
     await fs.mkdir(path.dirname(out), { recursive: true });
     await fs.writeFile(out, `${lines.join('\n')}\n`, 'utf8');
-    console.log(`OK | ${tables.length} tablas documentadas en docs/DICCIONARIO_DATOS.md`);
+    console.log(`OK | ${tables.length} tablas documentadas en DOCS/DICCIONARIO_DATOS.md`);
 };
 
 run()

@@ -16,3 +16,7 @@ security-reports/*.jsonl
 security-reports/*.log
 security-reports/server.pid
 security-reports/sqlmap-output/
+
+# Resultados de Playwright
+test-results/
+playwright-report/

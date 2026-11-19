@@ -96,4 +96,4 @@ npm run test:db
 9. **Notificaciones:** la campana del docente avisa de envíos para revisar; la del estudiante, de logros y mundos.
 10. **Unirse por código:** como estudiante, "Unirme a un curso" con el código del curso; el docente puede cerrar esa vía al editar el curso.
 
-Más detalle por rol en `docs/MANUAL.md`, el modelo de integridad en `INTEGRIDAD_ACADEMICA.md` y las tablas en `docs/DICCIONARIO_DATOS.md`.
+Más detalle por rol en `DOCS/MANUAL.md`, el modelo de integridad en `INTEGRIDAD_ACADEMICA.md` y las tablas en `DOCS/DICCIONARIO_DATOS.md`.
