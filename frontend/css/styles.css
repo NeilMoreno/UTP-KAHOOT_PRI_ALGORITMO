@@ -931,6 +931,19 @@ h3 { font-size: 1rem; }
 .reinforce-card { border: 1px solid var(--accent); display: grid; gap: 10px; }
 .reinforce-card p { margin: 0; }
 
+.bell-wrap { position: relative; }
+.bell { position: relative; }
+.bell-badge { position: absolute; top: -5px; right: -5px; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 9px; background: var(--danger, #FF5D6C); color: #fff; font-size: .68rem; font-weight: 800; display: grid; place-items: center; }
+.bell-badge[hidden] { display: none; }
+.bell-panel { position: absolute; right: 0; top: 46px; width: min(360px, 92vw); max-height: 70vh; overflow: auto; z-index: 30; border: 1px solid var(--border); border-radius: 12px; background: var(--surface, #1B1442); box-shadow: 0 18px 40px rgba(0, 0, 0, .45); }
+.bell-panel[hidden] { display: none; }
+.bell-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-bottom: 1px solid var(--border); }
+.bell-list { list-style: none; margin: 0; padding: 0; }
+.bell-item { width: 100%; display: grid; gap: 2px; text-align: left; padding: 11px 14px; border: 0; border-bottom: 1px solid var(--border); background: transparent; color: var(--text); cursor: pointer; font: inherit; }
+.bell-item:hover, .bell-item:focus-visible { background: rgba(123, 92, 255, .14); }
+.bell-item.is-unread { border-left: 3px solid var(--accent); }
+.bell-item span { color: var(--muted); font-size: .88rem; }
+
 /* Landing pública */
 .landing { min-height: 100dvh; display: grid; grid-template-rows: auto 1fr auto; background: radial-gradient(1200px 500px at 80% -10%, var(--accent-soft), transparent 70%), var(--ground); }
 .landing-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: min(100%, 1160px); margin: 0 auto; padding: 18px 20px; }

@@ -1,4 +1,5 @@
 import { h, icon, clear } from './ui.js';
+import { createBell } from './notifications.js';
 import { state, logout, toggleTheme } from './state.js';
 import { navigate } from './router.js';
 import { createAvatar, getAvatarChoice } from './characters.js';
@@ -134,6 +135,7 @@ export function renderChrome({ sidebar, topbar, currentPath }) {
         h('div', { class: 'topbar-actions' },
             gami ? h('span', { class: 'xp-value', title: gami.nombre_nivel },
                 `${gami.xp_total} XP`, h('small', {}, `Nivel ${gami.nivel_actual}`)) : null,
+            createBell(),
             themeButton,
             logoutButton)));
 }

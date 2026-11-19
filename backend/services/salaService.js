@@ -9,6 +9,7 @@ const { query, getClient } = require('../config/database');
 const { generateRoomPin } = require('../utils/kahootScoring');
 const { httpError } = require('../utils/httpError');
 const { isUuid } = require('../utils/validation');
+const { notifyMany } = require('./notificationService');
 
 const LIMITS = Object.freeze({
     MAX_QUESTIONS: 50,
@@ -181,6 +182,12 @@ const createRoom = async (user, idCourse, rawQuestions) => {
         }
         const preguntas = await fetchQuestions(client, sala.id_sala);
         await client.query('COMMIT');
+        // Aviso a los estudiantes matriculados (informativo: si falla, la sala igual existe).
+        query(`SELECT id_estudiante FROM matricula WHERE id_curso = $1 AND estado = 'activa';`, [idCourse])
+            .then((students) => notifyMany({ query }, students.rows.map((row) => row.id_estudiante), {
+                tipo: 'sala', titulo: 'Sala preparada', mensaje: `Tu docente preparó una sala en ${course.rows[0].nombre}. Entra con el PIN cuando la abra.`, enlace: '#/jugar'
+            }))
+            .catch(() => {});
         return toDescriptor(sala, course.rows[0], preguntas);
     } catch (error) {
         await client.query('ROLLBACK').catch(() => {});

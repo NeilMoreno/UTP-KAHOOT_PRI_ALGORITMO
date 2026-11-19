@@ -7,6 +7,7 @@ const { sanitizeSignals, findMostSimilar, assessRisk } = require('../services/in
 const { DEFAULT_MAX_CODE_LENGTH } = require('../services/pseintValidator');
 const { getLanguage } = require('../config/languages');
 const { readAnswer, gradeLocal } = require('../services/exerciseTypes');
+const { notify } = require('../services/notificationService');
 const { evaluatePseIntWithGemini } = require('../services/geminiService');
 const { unlockAchievements } = require('../services/achievementService');
 const { getEstudianteGamificationSummary } = require('../services/gamificationService');
@@ -209,6 +210,10 @@ const submitAndEvaluate = async (req, res, next) => {
             }).catch(() => ({ similitud: 0, id_envio_similar: null }))
             : { similitud: 0, id_envio_similar: null };
         const risk = assessRisk({ senales: signals, codeLength: code.length, similitud: similar.similitud });
+        const alertTeacher = () => notify({ query }, {
+            idUsuario: exercise.id_docente, tipo: 'integridad', titulo: 'Envío para revisar',
+            mensaje: `${req.user.nombre} ${req.user.apellido}: «${exercise.titulo}» tiene señales de riesgo alto.`, enlace: `#/analiticas/${exercise.id_curso}`
+        });
 
         const client = await getClient();
         let submission;
@@ -270,6 +275,7 @@ const submitAndEvaluate = async (req, res, next) => {
 
         submissionId = submission.id_envio_ejercicio;
         if (!created) return respondExistingSubmission(res, submission);
+        if (risk.riesgo === 'rojo') await alertTeacher();
 
         if (!validation.valid) {
             return res.status(422).json({
@@ -440,6 +446,26 @@ const submitAndEvaluate = async (req, res, next) => {
             }
 
             const logrosDesbloqueados = await unlockAchievements(finalClient, req.user.id_usuario);
+
+            // Notificaciones informativas (dentro de la misma transacción: se guardan solo si todo se confirma).
+            for (const logro of logrosDesbloqueados) {
+                await notify(finalClient, {
+                    idUsuario: req.user.id_usuario, tipo: 'logro', titulo: logro.tipo === 'logro' ? 'Nuevo logro' : 'Nueva insignia',
+                    mensaje: `${logro.nombre}: ${logro.descripcion}`, enlace: '#/logros'
+                });
+            }
+            if (worldCompleted) {
+                await notify(finalClient, {
+                    idUsuario: req.user.id_usuario, tipo: 'mundo', titulo: 'Mundo completado',
+                    mensaje: `Completaste el Mundo ${exercise.mundo_orden}. El siguiente ya está desbloqueado.`, enlace: `#/curso/${exercise.id_curso}`
+                });
+            }
+            if (integrity.manipulacion) {
+                await notify(finalClient, {
+                    idUsuario: exercise.id_docente, tipo: 'integridad', titulo: 'Intento de manipular la nota',
+                    mensaje: `${req.user.nombre} ${req.user.apellido} envió texto dirigido a la IA en «${exercise.titulo}».`, enlace: `#/analiticas/${exercise.id_curso}`
+                });
+            }
 
             if (!local) {
                 await finalClient.query(`
