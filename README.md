@@ -151,6 +151,10 @@ npm run test:integration    # suite completa contra codeint_test
 
 > No ejecutes `db:provision-app-role` para la base de pruebas: **rota la contraseña de `codeint_app` y reescribe `.env`**. `db:test-setup` aplica los mismos permisos sin hacerlo.
 
+## Documentación por rol y de datos
+- Manual de uso: [`docs/MANUAL.md`](docs/MANUAL.md) · Diccionario de datos (generado): [`docs/DICCIONARIO_DATOS.md`](docs/DICCIONARIO_DATOS.md) (`npm run docs:dictionary`).
+- Pruebas e2e de humo: `npm run test:e2e` (Playwright; usa la base de pruebas).
+
 ## Integridad académica y calificación con IA
 Ver [`INTEGRIDAD_ACADEMICA.md`](INTEGRIDAD_ACADEMICA.md): qué se registra, qué no se bloquea y cómo se protege la nota contra la inyección de prompt.
 

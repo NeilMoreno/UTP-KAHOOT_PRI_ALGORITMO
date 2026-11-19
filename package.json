@@ -24,7 +24,8 @@
     "db:test-superadmin": "node scripts/seed-test-superadmin.js",
     "db:test-setup": "node scripts/setup-test-db.js",
     "test:integration": "node scripts/with-test-db.js npm test",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "docs:dictionary": "node scripts/generate-data-dictionary.js"
   },
   "keywords": [
     "pseint",
