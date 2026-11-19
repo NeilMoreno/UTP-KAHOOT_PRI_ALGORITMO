@@ -264,7 +264,7 @@ h3 { font-size: 1rem; }
 .stat-card { display: grid; gap: 6px; padding: 18px; border-radius: var(--radius-card); background: var(--surface); }
 .stat-card span { color: var(--faint); font-size: .8rem; }
 .stat-card strong { font-size: 1.7rem; font-variant-numeric: tabular-nums; }
-.table-wrap { overflow-x: auto; border-radius: var(--radius-card); background: var(--surface); }
+.table-wrap { overflow-x: auto; contain: paint; border-radius: var(--radius-card); background: var(--surface); }
 .table { width: 100%; min-width: 620px; border-collapse: collapse; font-size: .9rem; }
 .table th {
     padding: 12px 14px; border-bottom: 1px solid var(--rule); color: var(--faint);
