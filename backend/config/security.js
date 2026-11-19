@@ -55,6 +55,15 @@ const limiter = (windowMs, limit, message) => rateLimit({
 
 const apiLimiter = limiter(15 * 60 * 1000, 300, 'Demasiadas solicitudes. Intente nuevamente más tarde.');
 const authLimiter = limiter(15 * 60 * 1000, 10, 'Demasiados intentos de autenticación. Intente nuevamente en 15 minutos.');
+// Unirse a un curso con código: pocos intentos por USUARIO (no por IP: un aula comparte la misma IP).
+const joinLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 10,
+    keyGenerator: (req) => `join:${req.user?.id_usuario || 'anon'}`,
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+    message: { success: false, error: 'TOO_MANY_JOIN_ATTEMPTS', message: 'Demasiados intentos con códigos. Espera unos minutos.' }
+});
 const uploadLimiter = limiter(60 * 60 * 1000, 20, 'Se alcanzó el límite de cargas. Intente nuevamente más tarde.');
 const aiEvaluationLimiter = limiter(60 * 60 * 1000, 30, 'Se alcanzó el límite de evaluaciones por IA. Intente nuevamente más tarde.');
 const aiGenerationLimiter = limiter(60 * 60 * 1000, 10, 'Se alcanzó el límite de generaciones por IA. Intente nuevamente más tarde.');
@@ -99,6 +108,7 @@ module.exports = {
     apiLimiter,
     authLimiter,
     uploadLimiter,
+    joinLimiter,
     aiEvaluationLimiter,
     aiGenerationLimiter
 };

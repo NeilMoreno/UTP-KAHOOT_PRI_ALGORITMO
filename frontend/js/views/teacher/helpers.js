@@ -112,6 +112,9 @@ export const courseFormModal = ({ course = null, onSaved }) => {
             h('option', { value: 'activo', selected: course.estado === 'activo' }, 'Activo'),
             h('option', { value: 'inactivo', selected: course.estado === 'inactivo' }, 'Inactivo'))
         : null;
+    // Permite que los estudiantes de la institución se unan con el código del curso (se puede cerrar).
+    const unionPorCodigo = h('input', { type: 'checkbox', id: 'curso-union' });
+    unionPorCodigo.checked = course?.union_por_codigo !== false;
     const errorBox = h('div', { role: 'alert', hidden: true });
     const submit = h('button', { class: 'btn', type: 'submit' }, editing ? 'Guardar cambios' : 'Crear curso');
 
@@ -128,7 +131,10 @@ export const courseFormModal = ({ course = null, onSaved }) => {
             const manualCode = codigo.value.trim().toUpperCase();
             if (editing || manualCode) payload.codigo_curso = manualCode;
             payload.lenguaje = lenguaje.value;
-            if (editing) payload.estado = estado.value;
+            if (editing) {
+                payload.estado = estado.value;
+                payload.union_por_codigo = unionPorCodigo.checked;
+            }
 
             if (!payload.nombre || !payload.periodo || (editing && !payload.codigo_curso)) {
                 errorBox.className = 'alert error';
@@ -158,6 +164,8 @@ export const courseFormModal = ({ course = null, onSaved }) => {
         h('div', { class: 'field' }, h('label', { for: 'curso-codigo' }, 'Código'), codigo, codeHint),
         h('div', { class: 'field' }, h('label', { for: 'curso-periodo' }, 'Periodo'), periodo),
         h('div', { class: 'field' }, h('label', { for: 'curso-lenguaje' }, 'Lenguaje de programación'), lenguaje, languageHint),
+        editing ? h('div', { class: 'field' }, h('label', { class: 'check-inline', for: 'curso-union' }, unionPorCodigo, ' Los estudiantes de mi institución pueden unirse con el código'),
+            h('span', { class: 'hint' }, 'Desmárcalo para cerrar el ingreso por código y matricular tú mismo.')) : null,
         estado ? h('div', { class: 'field' }, h('label', { for: 'curso-estado' }, 'Estado'), estado) : null),
     errorBox,
     h('div', { class: 'form-actions' },

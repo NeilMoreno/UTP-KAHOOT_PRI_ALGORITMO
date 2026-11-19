@@ -1,4 +1,4 @@
-import { h, icon, skeleton, errorMessage, formatDate, formatNumber } from '../../ui.js';
+import { h, icon, skeleton, errorMessage, formatDate, formatNumber, setBusy } from '../../ui.js';
 import { api } from '../../api.js';
 import { refreshUser } from '../../state.js';
 import { createAvatar, getAvatarChoice, className } from '../../characters.js';
@@ -158,6 +158,44 @@ const reinforcementSection = (data) => {
                 ejercicios.map((item) => h('a', { class: 'btn ghost small', href: `#/ejercicio/${item.id_ejercicio}` }, `${TYPE_TEXT[item.tipo] || 'Práctica'}: ${item.titulo}`)))));
 };
 
+// Unirse a un curso con el código que da el docente (solo cursos de la misma institución).
+const joinCard = (onJoined) => {
+    const input = h('input', { class: 'input', id: 'join-code', type: 'text', maxlength: 12, autocomplete: 'off', placeholder: 'Código del curso (ej. PP)', 'aria-label': 'Código del curso' });
+    const period = h('input', { class: 'input', id: 'join-period', type: 'text', maxlength: 20, placeholder: 'Periodo (ej. 2026-II)', hidden: true, 'aria-label': 'Periodo del curso' });
+    const feedback = h('div', { 'aria-live': 'polite' });
+    const button = h('button', { class: 'btn', type: 'submit' }, 'Unirme');
+    const form = h('form', {
+        class: 'join-form', novalidate: true,
+        onSubmit: async (event) => {
+            event.preventDefault();
+            const code = input.value.trim();
+            if (!code) { feedback.replaceChildren(h('div', { class: 'alert warn', role: 'alert' }, 'Escribe el código que te dio tu docente.')); return; }
+            setBusy(button, true, 'Uniéndome…');
+            try {
+                const response = await api('/cursos/unirse', { method: 'POST', body: { codigo: code, ...(period.hidden || !period.value.trim() ? {} : { periodo: period.value.trim() }) } });
+                feedback.replaceChildren(h('div', { class: 'alert success', role: 'status' }, response.message));
+                input.value = '';
+                period.hidden = true;
+                onJoined();
+            } catch (error) {
+                if (error.code === 'AMBIGUOUS_COURSE_CODE') {
+                    period.hidden = false;
+                    period.focus();
+                    feedback.replaceChildren(h('div', { class: 'alert warn', role: 'alert' }, `${error.message} Opciones: ${(error.body.periodos || []).join(', ')}.`));
+                } else {
+                    feedback.replaceChildren(h('div', { class: 'alert error', role: 'alert' }, errorMessage(error)));
+                }
+            } finally {
+                setBusy(button, false);
+            }
+        }
+    }, h('div', { class: 'row' }, input, period, button), feedback);
+    return h('div', { class: 'card join-card' },
+        h('strong', {}, 'Unirme a un curso'),
+        h('p', { class: 'muted small' }, 'Escribe el código que te dio tu docente.'),
+        form);
+};
+
 export default async function dashboardView({ root, user }) {
     document.title = 'Centro de misiones · codeInt';
 
@@ -172,7 +210,8 @@ export default async function dashboardView({ root, user }) {
         h('div', { class: 'dashboard-lower' },
             h('section', { class: 'section-block' },
                 h('div', { class: 'section-heading' }, h('h2', {}, 'Mis cursos'), h('span', { class: 'muted' }, 'Rutas asignadas')),
-                coursesHost),
+                coursesHost,
+                joinCard(() => setTimeout(() => location.reload(), 900))),
             h('section', { class: 'section-block' },
                 h('div', { class: 'section-heading' }, h('h2', {}, 'Logros'), h('a', { class: 'text-action', href: '#/logros' }, 'Ver todos', icon('trophy', 14))),
                 achievementsHost))));

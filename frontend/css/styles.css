@@ -944,6 +944,13 @@ h3 { font-size: 1rem; }
 .bell-item.is-unread { border-left: 3px solid var(--accent); }
 .bell-item span { color: var(--muted); font-size: .88rem; }
 
+.join-form .row { display: flex; gap: 10px; flex-wrap: wrap; }
+.join-form .input { flex: 1 1 180px; min-width: 0; }
+.join-form .input[hidden] { display: none; }
+
+.join-card { margin-top: 16px; display: grid; gap: 6px; }
+.join-card p { margin: 0 0 6px; }
+
 /* Landing pública */
 .landing { min-height: 100dvh; display: grid; grid-template-rows: auto 1fr auto; background: radial-gradient(1200px 500px at 80% -10%, var(--accent-soft), transparent 70%), var(--ground); }
 .landing-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: min(100%, 1160px); margin: 0 auto; padding: 18px 20px; }

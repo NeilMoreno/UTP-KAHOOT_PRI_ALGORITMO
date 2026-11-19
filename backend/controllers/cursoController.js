@@ -9,6 +9,9 @@ const { normalizeEmail } = require('../utils/validation');
 const { BASE_WORLDS } = require('../config/baseContent');
 const { generateCourseCode, isValidCourseCode } = require('../utils/courseCode');
 const { DEFAULT_LANGUAGE, getLanguage, isValidLanguage } = require('../config/languages');
+const { httpError } = require('../utils/httpError');
+const { notify } = require('../services/notificationService');
+const { recordSecurityEvent, getRequestIp } = require('../services/securityAuditService');
 
 /**
  * Listado de cursos según el rol del usuario
@@ -38,7 +41,7 @@ const getCursos = async (req, res, next) => {
         } else if (user.rol === 'docente') {
             // Cursos administrados por este docente
             sql = `
-                SELECT c.id_curso, c.id_institucion, c.nombre, c.codigo_curso, c.periodo, c.estado, c.lenguaje, c.fecha_creacion,
+                SELECT c.id_curso, c.id_institucion, c.nombre, c.codigo_curso, c.periodo, c.estado, c.lenguaje, c.union_por_codigo, c.fecha_creacion,
                        (SELECT count(*) FROM matricula m WHERE m.id_curso = c.id_curso AND m.estado = 'activa')::INTEGER AS total_estudiantes,
                        (SELECT count(*) FROM mundo mu WHERE mu.id_curso = c.id_curso)::INTEGER AS total_mundos
                 FROM curso c
@@ -49,7 +52,7 @@ const getCursos = async (req, res, next) => {
         } else {
             // Superadministrador: todos los cursos de todas las instituciones
             sql = `
-                SELECT c.id_curso, c.id_institucion, c.nombre, c.codigo_curso, c.periodo, c.estado, c.lenguaje, c.fecha_creacion,
+                SELECT c.id_curso, c.id_institucion, c.nombre, c.codigo_curso, c.periodo, c.estado, c.lenguaje, c.union_por_codigo, c.fecha_creacion,
                        i.nombre AS institucion_nombre,
                        u.nombre AS docente_nombre, u.apellido AS docente_apellido,
                        (SELECT count(*) FROM matricula m WHERE m.id_curso = c.id_curso AND m.estado = 'activa')::INTEGER AS total_estudiantes,
@@ -84,7 +87,7 @@ const getCursoById = async (req, res, next) => {
         await getAuthorizedCourse(id_curso, user);
 
         const sql = `
-            SELECT c.id_curso, c.id_institucion, c.id_docente, c.nombre, c.codigo_curso, c.periodo, c.estado, c.lenguaje, c.fecha_creacion,
+            SELECT c.id_curso, c.id_institucion, c.id_docente, c.nombre, c.codigo_curso, c.periodo, c.estado, c.lenguaje, c.union_por_codigo, c.fecha_creacion,
                    i.nombre AS institucion_nombre,
                    u.nombre AS docente_nombre, u.apellido AS docente_apellido, u.email AS docente_email,
                    (SELECT count(*) FROM matricula m WHERE m.id_curso = c.id_curso AND m.estado = 'activa')::INTEGER AS total_estudiantes
@@ -311,6 +314,7 @@ const updateCurso = async (req, res, next) => {
     try {
         const { id_curso } = req.params;
         const { nombre, codigo_curso, periodo, estado, lenguaje } = req.body;
+        const unionPorCodigo = typeof req.body.union_por_codigo === 'boolean' ? req.body.union_por_codigo : null;
         const user = req.user;
         await getAuthorizedCourse(id_curso, user, { write: true });
         if (lenguaje !== undefined && !isValidLanguage(lenguaje)) {
@@ -354,9 +358,10 @@ const updateCurso = async (req, res, next) => {
                 codigo_curso = COALESCE($2, codigo_curso),
                 periodo = COALESCE($3, periodo),
                 estado = COALESCE($4, estado),
-                lenguaje = COALESCE($6, lenguaje)
+                lenguaje = COALESCE($6, lenguaje),
+                union_por_codigo = COALESCE($7, union_por_codigo)
             WHERE id_curso = $5
-            RETURNING id_curso, nombre, codigo_curso, periodo, estado, lenguaje;
+            RETURNING id_curso, nombre, codigo_curso, periodo, estado, lenguaje, union_por_codigo;
         `;
         const updatedRes = await query(updateSql, [
             nombre ? nombre.trim() : null,
@@ -364,7 +369,8 @@ const updateCurso = async (req, res, next) => {
             periodo ? periodo.trim() : null,
             estado ? estado.trim() : null,
             id_curso,
-            lenguaje === undefined ? null : lenguaje
+            lenguaje === undefined ? null : lenguaje,
+            unionPorCodigo
         ]);
 
         return res.json({
@@ -505,6 +511,91 @@ const matricularEstudiante = async (req, res, next) => {
 };
 
 /**
+ * El estudiante se une a un curso con su código. Solo cursos activos de SU institución; el docente puede cerrar
+ * esta vía (union_por_codigo). Un estudiante retirado por el docente no puede volver a entrar por código.
+ * POST /api/cursos/unirse   { codigo, periodo? }
+ */
+const unirsePorCodigo = async (req, res, next) => {
+    const client = await getClient();
+    try {
+        const user = req.user;
+        const code = typeof req.body?.codigo === 'string' ? req.body.codigo.trim().toUpperCase() : '';
+        if (!isValidCourseCode(code)) {
+            throw httpError(400, 'El código del curso no tiene un formato válido.', 'INVALID_COURSE_CODE');
+        }
+        if (!user.id_institucion) throw httpError(403, 'Tu cuenta no pertenece a una institución.', 'NO_INSTITUTION');
+
+        // Mensaje único si no hay coincidencia: no se revela si el código existe en otra institución.
+        const notFound = () => httpError(404, 'No encontramos un curso activo con ese código en tu institución.', 'COURSE_CODE_NOT_FOUND');
+        const found = await query(
+            `SELECT c.id_curso, c.nombre, c.periodo, c.id_docente, c.union_por_codigo
+               FROM curso c
+              WHERE upper(c.codigo_curso) = $1 AND c.id_institucion = $2 AND c.estado = 'activo'
+              ORDER BY c.periodo DESC;`,
+            [code, user.id_institucion]
+        );
+        let candidates = found.rows;
+        const period = typeof req.body?.periodo === 'string' ? req.body.periodo.trim() : '';
+        if (period) candidates = candidates.filter((course) => course.periodo === period);
+        if (candidates.length === 0) throw notFound();
+        if (candidates.length > 1) {
+            return res.status(409).json({
+                success: false, error: 'AMBIGUOUS_COURSE_CODE',
+                message: 'Ese código existe en más de un periodo. Indica el periodo.',
+                periodos: candidates.map((course) => course.periodo)
+            });
+        }
+        const course = candidates[0];
+        if (!course.union_por_codigo) {
+            throw httpError(403, 'El docente cerró la unión por código en este curso. Pídele que te matricule.', 'JOIN_BY_CODE_DISABLED');
+        }
+
+        await client.query('BEGIN');
+        const existing = await client.query('SELECT id_matricula, estado FROM matricula WHERE id_curso = $1 AND id_estudiante = $2 FOR UPDATE;', [course.id_curso, user.id_usuario]);
+        if (existing.rowCount > 0 && existing.rows[0].estado === 'retirada') {
+            throw httpError(403, 'Tu docente te retiró de este curso. Pídele que te matricule de nuevo.', 'WITHDRAWN_BY_TEACHER');
+        }
+        let joined = false;
+        let enrollmentId = existing.rows[0]?.id_matricula;
+        if (existing.rowCount === 0) {
+            const inserted = await client.query(
+                `INSERT INTO matricula (id_curso, id_estudiante, estado) VALUES ($1, $2, 'activa') RETURNING id_matricula;`,
+                [course.id_curso, user.id_usuario]
+            );
+            enrollmentId = inserted.rows[0].id_matricula;
+            joined = true;
+            const worlds = await client.query('SELECT id_mundo, orden FROM mundo WHERE id_curso = $1 ORDER BY orden ASC;', [course.id_curso]);
+            for (const world of worlds.rows) {
+                await client.query(
+                    `INSERT INTO progreso_mundo (id_matricula, id_mundo, id_curso, estado, fecha_inicio)
+                     VALUES ($1, $2, $3, $4, ${world.orden === 1 ? 'now()' : 'NULL'}) ON CONFLICT (id_matricula, id_mundo) DO NOTHING;`,
+                    [enrollmentId, world.id_mundo, course.id_curso, world.orden === 1 ? 'en_progreso' : 'bloqueado']
+                );
+            }
+            await recordSecurityEvent(client, {
+                actorId: user.id_usuario, institutionId: user.id_institucion, action: 'MATRICULA_POR_CODIGO',
+                targetType: 'curso', targetId: course.id_curso, result: 'exitoso', ip: getRequestIp(req), metadata: { codigo: code }
+            });
+            await notify(client, {
+                idUsuario: course.id_docente, tipo: 'matricula', titulo: 'Nuevo estudiante',
+                mensaje: `${user.nombre} ${user.apellido} se unió a ${course.nombre} con el código.`, enlace: `#/cursos/${course.id_curso}`
+            });
+        }
+        await client.query('COMMIT');
+        return res.status(joined ? 201 : 200).json({
+            success: true,
+            message: joined ? `Te uniste a ${course.nombre}.` : `Ya estabas en ${course.nombre}.`,
+            data: { id_curso: course.id_curso, nombre: course.nombre, periodo: course.periodo, nuevo: joined }
+        });
+    } catch (error) {
+        await client.query('ROLLBACK').catch(() => {});
+        return next(error);
+    } finally {
+        client.release();
+    }
+};
+
+/**
  * Matrícula masiva de estudiantes mediante CSV (archivo o texto en formato CSV)
  * Formato esperado en el CSV: nombre,apellido,email
  * POST /api/cursos/:id_curso/matricular-csv
@@ -639,6 +730,7 @@ const matricularCsvMasivo = async (req, res, next) => {
 };
 
 module.exports = {
+    unirsePorCodigo,
     getCursos,
     getCursoById,
     createCurso,

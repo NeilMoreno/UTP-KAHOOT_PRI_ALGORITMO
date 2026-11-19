@@ -9,7 +9,7 @@ const multer = require('multer');
 const cursoController = require('../controllers/cursoController');
 const { authenticateJWT } = require('../middleware/authMiddleware');
 const { authorizeRoles } = require('../middleware/roleMiddleware');
-const { uploadLimiter } = require('../config/security');
+const { uploadLimiter, joinLimiter } = require('../config/security');
 
 // Configuración de multer en memoria para carga de CSV (máximo 5MB)
 const upload = multer({
@@ -25,6 +25,9 @@ const upload = multer({
         callback(error, false);
     }
 });
+
+// El estudiante se une con el código del curso (misma institución; con límite de intentos por usuario)
+router.post('/unirse', authenticateJWT, authorizeRoles('estudiante'), joinLimiter, cursoController.unirsePorCodigo);
 
 // Listado de cursos del usuario (estudiante ve sus cursos matriculados, docente ve los suyos)
 router.get('/', authenticateJWT, cursoController.getCursos);
