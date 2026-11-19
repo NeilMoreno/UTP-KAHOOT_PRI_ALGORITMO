@@ -7,6 +7,7 @@ const { getStreak } = require('../services/streakService');
 const { getWeeklyMissions } = require('../services/missionService');
 const { getCourseRanking } = require('../services/rankingService');
 const { getAuthorizedCourse } = require('../services/authorizationService');
+const { buildReinforcement } = require('../services/reinforcementService');
 const { authenticateJWT } = require('../middleware/authMiddleware');
 const { authorizeRoles } = require('../middleware/roleMiddleware');
 
@@ -17,6 +18,16 @@ router.get('/logros', authenticateJWT, authorizeRoles('estudiante'), async (req,
     try {
         const data = await listAchievementProgress({ query }, req.user.id_usuario);
         res.json({ success: true, total: data.length, data });
+    } catch (error) {
+        next(error);
+    }
+});
+
+// Refuerzo por errores de un curso (solo estudiantes matriculados; no usa IA)
+router.get('/refuerzo/:id_curso', authenticateJWT, authorizeRoles('estudiante'), async (req, res, next) => {
+    try {
+        await getAuthorizedCourse(req.params.id_curso, req.user);
+        res.json({ success: true, data: await buildReinforcement(req.params.id_curso, req.user.id_usuario) });
     } catch (error) {
         next(error);
     }

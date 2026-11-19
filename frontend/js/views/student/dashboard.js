@@ -4,6 +4,7 @@ import { refreshUser } from '../../state.js';
 import { createAvatar, getAvatarChoice, className } from '../../characters.js';
 import { LAYERS } from '../../avatar-parts.js';
 import { getLanguage } from '../../languages.js';
+import { CATEGORY_LABEL } from './result-modal.js';
 
 const progressBar = (value, label, className = '') => h('div', {
     class: `progress ${className}`.trim(), role: 'progressbar',
@@ -134,6 +135,29 @@ const progressPanel = (gami) => {
             h('div', {}, h('span', {}, 'Logros'), h('strong', {}, formatNumber(gami.total_logros_desbloqueados)))));
 };
 
+// Refuerzo por errores: aparece cuando falló 3 o más veces la misma categoría de error (últimos 30 días).
+const REINFORCE_TEXT = {
+    sintaxis: 'Estás tropezando con la sintaxis. Repasa la forma exacta de escribir cada instrucción y usa «Revisar código» antes de enviar.',
+    logica: 'Varias soluciones no cumplen el enunciado. Antes de escribir, piensa los pasos en papel y pruébalos con un ejemplo.',
+    condicion_borde: 'Te fallan los casos límite (cero, vacío, el mayor y el menor). Prueba siempre esos valores.',
+    eficiencia: 'Tus soluciones funcionan pero se pueden simplificar. Busca bucles o cálculos repetidos.',
+    formato: 'El resultado es correcto pero el formato no coincide. Compara tu salida con el ejemplo del enunciado.',
+    otro: 'Revisa la retroalimentación de tus últimos intentos: ahí está la pista.'
+};
+const TYPE_TEXT = { predecir: 'Predecir la salida', completar: 'Completar el código', ordenar: 'Ordenar las líneas', corregir: 'Corregir el código' };
+
+const reinforcementSection = (data) => {
+    if (!data?.necesita_refuerzo) return null;
+    const { categoria, mundo, ejercicios } = data;
+    return h('section', { class: 'section-block' },
+        h('div', { class: 'card reinforce-card' },
+            h('div', { class: 'section-heading' }, h('h2', {}, icon('sparkles', 16), ' Refuerzo para ti')),
+            h('p', {}, h('strong', {}, `${categoria.total} intentos con error de ${CATEGORY_LABEL[categoria.categoria] || categoria.categoria}. `), REINFORCE_TEXT[categoria.categoria] || REINFORCE_TEXT.otro),
+            h('div', { class: 'row' },
+                mundo?.tiene_leccion ? h('a', { class: 'btn secondary small', href: `#/mundo/${mundo.id_mundo}` }, `Repasar la lección del Mundo ${mundo.orden}`) : null,
+                ejercicios.map((item) => h('a', { class: 'btn ghost small', href: `#/ejercicio/${item.id_ejercicio}` }, `${TYPE_TEXT[item.tipo] || 'Práctica'}: ${item.titulo}`)))));
+};
+
 export default async function dashboardView({ root, user }) {
     document.title = 'Centro de misiones · codeInt';
 
@@ -171,6 +195,10 @@ export default async function dashboardView({ root, user }) {
 
     const missionsNode = missionsSection(missions);
     if (missionsNode) dashboard.after(missionsNode);
+    // Refuerzo (opcional): si algo falla, el panel sigue igual.
+    const reinforcement = courses[0] ? await api(`/gamificacion/refuerzo/${courses[0].id_curso}`).then((body) => body.data).catch(() => null) : null;
+    const reinforcementNode = reinforcementSection(reinforcement);
+    if (reinforcementNode) (missionsNode || dashboard).after(reinforcementNode);
     dashboard.replaceChildren(
         h('div', { class: 'dashboard-lead' }, missionPanel(profile, courses, next)),
         h('div', { class: 'dashboard-progress' }, progressPanel(profile.gamification), streakPanel(streak)));
