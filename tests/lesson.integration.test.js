@@ -22,7 +22,7 @@ const draftContent = () => ({
             enunciado: '¿Cuál es la respuesta correcta aquí?',
             opciones: ['a', 'b', 'c', 'd'].map((texto, i) => ({ texto, es_correcta: i === 0 }))
         })),
-        ...(n === 1 ? { leccion: lesson() } : {})
+        ...(n === 1 ? { leccion: lesson(), extras: [{ tipo: 'predecir', titulo: 'Predice la suma', enunciado: 'Lee el código y escribe lo que imprime.', material: { codigo: 'print(2 + 3)' }, solucion: { respuesta: '5' } }] } : {})
     }))
 });
 
@@ -76,6 +76,15 @@ test('la lección del borrador se publica con el mundo y el estudiante la recibe
         assert.equal(first.leccion.comprobacion.opciones.length, 4);
         const second = (await request(app).get(`/api/mundos/${worlds[1].id_mundo}`).set(sAuth).expect(200)).body.data;
         assert.equal(second.leccion, null, 'los mundos sin lección no inventan una');
+
+        // El ejercicio extra se publicó como ejercicio tipado (4.º del mundo 1) y su solución no llega al estudiante.
+        const exercises = (await request(app).get(`/api/ejercicios/mundo/${worlds[0].id_mundo}`).set(sAuth).expect(200)).body.data;
+        assert.equal(exercises.length, 4);
+        const extra = exercises.find((item) => item.tipo === 'predecir');
+        assert.ok(extra);
+        const detail = (await request(app).get(`/api/ejercicios/${extra.id_ejercicio}`).set(sAuth).expect(200)).body.data;
+        assert.equal(detail.material.codigo, 'print(2 + 3)');
+        assert.equal('solucion' in detail, false);
     } finally {
         if (courseId) {
             await pool.query(`UPDATE matricula SET estado = 'retirada' WHERE id_curso = $1`, [courseId]).catch(() => {});

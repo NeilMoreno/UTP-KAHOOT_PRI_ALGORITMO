@@ -2,6 +2,7 @@
 
 const { DEFAULT_MODEL, GeminiServiceError } = require('./geminiService');
 const { getLanguage } = require('../config/languages');
+const { validateTypedExercise } = require('./exerciseTypes');
 
 // ==============================================================
 // Generación de un borrador de curso (mundos, ejercicios y preguntas de sala) desde un sílabo PDF.
@@ -104,6 +105,27 @@ const validateLesson = (value, unitLabel) => {
     };
 };
 
+// ---- Ejercicios extra de corrección automática (predecir, completar, ordenar, corregir) ----
+const MAX_EXTRAS = 6;
+
+const validateExtra = (value, unitLabel) => {
+    if (!value || typeof value !== 'object') throw new DraftValidationError(`${unitLabel}: ejercicio extra no válido.`);
+    if (value.tipo === 'escribir') throw new DraftValidationError(`${unitLabel}: un ejercicio extra no puede ser de escribir código.`);
+    let typed;
+    try {
+        typed = validateTypedExercise({ tipo: value.tipo, material: value.material, solucion: value.solucion });
+    } catch (error) {
+        throw new DraftValidationError(`${unitLabel}: ${error.message}`);
+    }
+    return {
+        titulo: cleanText(value.titulo, 'título del ejercicio extra', { min: 3, max: 200 }),
+        enunciado: cleanText(value.enunciado, 'enunciado del ejercicio extra', { min: 20, max: 4000, multiline: true }),
+        tipo: typed.tipo,
+        material: typed.material,
+        solucion: typed.solucion
+    };
+};
+
 // Valida y normaliza el contenido del borrador. Lanza DraftValidationError ante cualquier desvío.
 const validateDraftContent = (value) => {
     const units = Array.isArray(value?.unidades) ? value.unidades : null;
@@ -130,7 +152,10 @@ const validateDraftContent = (value) => {
                 ejercicios: LEVELS.map((level) => cleanExercises.find((exercise) => exercise.nivel === level)),
                 preguntas_sala: questions.map((question) => validateQuestion(question, label)),
                 // La lección es opcional (la IA la genera aparte o el docente la escribe).
-                ...(unit.leccion ? { leccion: validateLesson(unit.leccion, label) } : {})
+                ...(unit.leccion ? { leccion: validateLesson(unit.leccion, label) } : {}),
+                // Ejercicios extra de corrección automática (opcionales, hasta MAX_EXTRAS por unidad).
+                ...(Array.isArray(unit.extras) && unit.extras.length > 0
+                    ? { extras: unit.extras.slice(0, MAX_EXTRAS).map((extra) => validateExtra(extra, label)) } : {})
             };
         })
     };
@@ -374,6 +399,8 @@ module.exports = {
     LIMITS,
     SYLLABUS_SCHEMA,
     LESSON_LIMITS,
+    MAX_EXTRAS,
+    validateExtra,
     DraftValidationError,
     validateLesson,
     buildSyllabusPrompt,

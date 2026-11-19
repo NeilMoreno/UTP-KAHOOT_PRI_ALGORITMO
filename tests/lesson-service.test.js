@@ -123,3 +123,40 @@ test('sin clave de API no se intenta la llamada', async () => {
             (error) => error.code === 'GEMINI_NOT_CONFIGURED');
     } finally { if (previous !== undefined) process.env.GEMINI_API_KEY = previous; }
 });
+
+// ---- Ejercicios extra de corrección automática ----------------------------------------------------
+const { toExtra } = require('../backend/services/lessonService');
+
+const flat = (extra) => ({ tipo: 'predecir', titulo: 'Predice la salida', enunciado: 'Lee el código y escribe lo que imprime.', codigo: '', respuesta: '', huecos: [], lineas: [], debe_contener: [], no_debe_contener: [], ...extra });
+
+test('toExtra convierte el formato plano de la IA a material y solución', () => {
+    assert.deepEqual(toExtra(flat({ codigo: 'print(2 * 3)', respuesta: '6' })).solucion, { respuesta: '6' });
+    assert.deepEqual(toExtra(flat({ tipo: 'completar', codigo: 'for i in ___(3): ___(i)', huecos: ['range', 'print | imprimir'] })).solucion.huecos, [['range'], ['print', 'imprimir']]);
+    assert.deepEqual(toExtra(flat({ tipo: 'ordenar', lineas: ['a', 'b', 'c'] })).solucion.lineas, ['a', 'b', 'c']);
+    const fix = toExtra(flat({ tipo: 'corregir', codigo: 'return a - b', debe_contener: ['return a + b'], no_debe_contener: ['return a - b'] }));
+    assert.deepEqual(fix.solucion, { debe_contener: ['return a + b'], no_debe_contener: ['return a - b'] });
+});
+
+test('los extras válidos llegan, los inválidos se descartan y las lecciones se conservan', () => withKey(async () => {
+    const good = flat({ codigo: 'print(2 * 3)', respuesta: '6' });
+    const badFill = flat({ tipo: 'completar', codigo: 'sin huecos', huecos: [] }); // sin ___: inválido
+    const withExtras = units.map((unit, index) => ({ unidad: unit.orden, ...lesson(), extras: index === 0 ? [good, badFill] : [] }));
+    const result = await generateLessons({ units, courseName: 'X', language: { id: 'python' }, retryDelayMs: 0, fetchImpl: async () => ok(withExtras) });
+    assert.equal(result.lessons.length, 3);
+    assert.equal(result.extras[0].length, 1);
+    assert.equal(result.extras[0][0].tipo, 'predecir');
+    assert.deepEqual(result.extras[1], []);
+}));
+
+test('el prompt pide ejercicios extra de los cuatro tipos', () => {
+    const prompt = buildLessonPrompt({ units, courseName: 'X', language: 'python' });
+    for (const word of ['predecir', 'completar', 'ordenar', 'corregir']) assert.match(prompt, new RegExp(`"${word}"`));
+});
+
+test('el borrador valida los extras y rechaza los de escribir código', () => {
+    const { validateExtra } = require('../backend/services/syllabusService');
+    const extra = { tipo: 'ordenar', titulo: 'Ordena', enunciado: 'Ordena las líneas del programa.', material: {}, solucion: { lineas: ['a = 1', 'b = 2', 'print(a + b)'] } };
+    assert.equal(validateExtra(extra, 'U1').tipo, 'ordenar');
+    assert.throws(() => validateExtra({ ...extra, tipo: 'escribir' }, 'U1'), /escribir/);
+    assert.throws(() => validateExtra({ ...extra, solucion: { lineas: ['solo una'] } }, 'U1'), /líneas/i);
+});

@@ -278,6 +278,17 @@ const publicarBorrador = async (req, res, next) => {
                 order += 1;
                 exercises += 1;
             }
+            // Ejercicios extra de corrección automática, a continuación de los tres base.
+            for (const extra of unit.extras || []) {
+                await client.query(
+                    `INSERT INTO ejercicio (id_mundo, id_curso, titulo, enunciado, plantilla_pseint, orden, xp_recompensa, tipo, material, solucion)
+                     VALUES ($1, $2, $3, $4, NULL, $5, $6, $7, $8::jsonb, $9::jsonb);`,
+                    [world.rows[0].id_mundo, req.params.id_curso, extra.titulo, extra.enunciado, order, XP_BY_LEVEL.basico,
+                        extra.tipo, JSON.stringify(extra.material), JSON.stringify(extra.solucion)]
+                );
+                order += 1;
+                exercises += 1;
+            }
         }
 
         await client.query(`UPDATE borrador_curso SET estado = 'publicado', fecha_actualizacion = now() WHERE id_borrador = $1;`, [draft.id_borrador]);
@@ -344,7 +355,12 @@ const generarLecciones = async (req, res, next) => {
             units: content.unidades, courseName: courseRow.rows[0]?.nombre, language: getLanguage(courseRow.rows[0]?.lenguaje)
         });
         const merged = validateDraftContent({
-            unidades: content.unidades.map((unit, index) => ({ ...unit, leccion: result.lessons[index] }))
+            unidades: content.unidades.map((unit, index) => ({
+                ...unit,
+                leccion: result.lessons[index],
+                // Los extras nuevos reemplazan a los anteriores; si la IA no dio ninguno válido se conservan los actuales.
+                ...(result.extras[index].length > 0 ? { extras: result.extras[index] } : {})
+            }))
         });
 
         const client = await getClient();
@@ -363,7 +379,7 @@ const generarLecciones = async (req, res, next) => {
         } finally {
             client.release();
         }
-        res.json({ success: true, message: 'Lecciones generadas. Revísalas y edítalas antes de publicar.', contenido: merged, uso_tokens: result.usage });
+        res.json({ success: true, message: 'Lecciones y ejercicios extra generados. Revísalos antes de publicar (verifica las respuestas).', contenido: merged, uso_tokens: result.usage });
     } catch (error) {
         if (reserved) await query('SELECT * FROM confirmar_uso_ia($1, 0, false);', [operationId]).catch(() => {});
         next(error instanceof DraftValidationError ? httpError(400, error.message, 'INVALID_DRAFT') : error);

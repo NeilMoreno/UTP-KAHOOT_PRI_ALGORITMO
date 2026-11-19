@@ -5,7 +5,7 @@
 // El contenido del borrador se entrega como dato no confiable y la salida se revalida con validateLesson.
 
 const { DEFAULT_MODEL, GeminiServiceError } = require('./geminiService');
-const { validateLesson, DraftValidationError, LESSON_LIMITS } = require('./syllabusService');
+const { validateLesson, validateExtra, DraftValidationError, LESSON_LIMITS, MAX_EXTRAS } = require('./syllabusService');
 const { getLanguage } = require('../config/languages');
 
 // Esquema deliberadamente simple (Gemini rechaza esquemas con límites anidados): las reglas se exigen después.
@@ -34,9 +34,28 @@ const LESSON_SCHEMA = Object.freeze({
                             correcta: { type: 'integer' }
                         },
                         required: ['pregunta', 'opciones', 'correcta']
+                    },
+                    // Esquema plano: se convierte a material/solucion en el servidor.
+                    extras: {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            properties: {
+                                tipo: { type: 'string', enum: ['predecir', 'completar', 'ordenar', 'corregir'] },
+                                titulo: { type: 'string' },
+                                enunciado: { type: 'string' },
+                                codigo: { type: 'string' },
+                                respuesta: { type: 'string' },
+                                huecos: { type: 'array', items: { type: 'string' } },
+                                lineas: { type: 'array', items: { type: 'string' } },
+                                debe_contener: { type: 'array', items: { type: 'string' } },
+                                no_debe_contener: { type: 'array', items: { type: 'string' } }
+                            },
+                            required: ['tipo', 'titulo', 'enunciado', 'codigo', 'respuesta', 'huecos', 'lineas', 'debe_contener', 'no_debe_contener']
+                        }
                     }
                 },
-                required: ['unidad', 'tarjetas', 'comprobacion']
+                required: ['unidad', 'tarjetas', 'comprobacion', 'extras']
             }
         }
     },
@@ -48,6 +67,18 @@ const positiveInt = (value, fallback) => {
     return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
 };
 const sleep = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });
+
+// Pasa el formato plano de la IA a material/solucion según el tipo.
+const toExtra = (item) => {
+    const list = (value) => (Array.isArray(value) ? value : []);
+    const base = { tipo: item?.tipo, titulo: item?.titulo, enunciado: item?.enunciado };
+    if (item?.tipo === 'predecir') return { ...base, material: { codigo: item.codigo }, solucion: { respuesta: item.respuesta } };
+    if (item?.tipo === 'completar') {
+        return { ...base, material: { codigo: item.codigo }, solucion: { huecos: list(item.huecos).map((row) => String(row).split('|').map((option) => option.trim()).filter(Boolean)) } };
+    }
+    if (item?.tipo === 'ordenar') return { ...base, material: {}, solucion: { lineas: list(item.lineas) } };
+    return { ...base, material: { codigo: item?.codigo }, solucion: { debe_contener: list(item?.debe_contener), no_debe_contener: list(item?.no_debe_contener) } };
+};
 
 const buildLessonPrompt = ({ units, courseName, language }) => {
     const lang = getLanguage(language?.id || language);
@@ -64,6 +95,12 @@ const buildLessonPrompt = ({ units, courseName, language }) => {
         `Cada lección tiene entre ${LESSON_LIMITS.MIN_CARDS} y ${LESSON_LIMITS.MAX_CARDS} tarjetas cortas: una idea por tarjeta, en lenguaje simple para un principiante, con un ejemplo de código en ${lang.promptName} cuando ayude (cadena vacía si no hace falta).`,
         'Prepara al estudiante para los ejercicios de la unidad SIN resolverlos ni dar su solución.',
         'Termina cada lección con una pregunta de comprobación de 4 opciones: "correcta" es el índice (0 a 3) de la opción correcta.',
+        `Crea además 2 ejercicios extra por unidad de corrección automática, de tipos distintos, en ${lang.promptName}:`,
+        '- "predecir": "codigo" es un programa corto (sin entrada del usuario) y "respuesta" lo que imprime EXACTAMENTE; calcula la salida con cuidado.',
+        '- "completar": "codigo" tiene de 1 a 4 huecos marcados con ___ y "huecos" trae, en orden, la respuesta de cada hueco (alternativas separadas por |).',
+        '- "ordenar": "lineas" son de 4 a 8 líneas de un programa en el orden correcto, conservando la sangría.',
+        '- "corregir": "codigo" tiene un error sembrado; "debe_contener" lista el fragmento corregido y "no_debe_contener" el fragmento con el error.',
+        'En cada ejercicio extra deja vacíos ("" o []) los campos que su tipo no usa. Escribe enunciados claros que no revelen la solución.',
         'Devuelve una lección por unidad usando el mismo número de unidad. Escribe todo en español, sin Markdown.',
         '<CURSO_NO_CONFIABLE>',
         JSON.stringify(String(courseName || '').slice(0, 150)),
@@ -149,6 +186,7 @@ const requestLessons = async ({ units, courseName, language, fetchImpl = globalT
     }
 
     let lessons;
+    let extras;
     try {
         const parsed = JSON.parse(text);
         if (!Array.isArray(parsed?.lecciones)) throw new DraftValidationError('No vino la lista de lecciones.');
@@ -158,12 +196,16 @@ const requestLessons = async ({ units, courseName, language, fetchImpl = globalT
             if (!item) throw new DraftValidationError(`Falta la lección de la unidad ${unit.orden}.`);
             return validateLesson(item, `Unidad ${unit.orden}`);
         });
+        // Los ejercicios extra son un complemento: uno inválido se descarta, no tira las lecciones.
+        extras = units.map((unit) => (byUnit.get(unit.orden)?.extras || []).map(toExtra).flatMap((candidate) => {
+            try { return [validateExtra(candidate, `Unidad ${unit.orden}`)]; } catch { return []; }
+        }).slice(0, MAX_EXTRAS));
     } catch (error) {
         const invalid = new GeminiServiceError(`Gemini devolvió lecciones que no cumplen el formato (${error.message})`, { code: 'GEMINI_INVALID_RESPONSE', cause: error });
         invalid.tokensUsed = tokenCount;
         throw invalid;
     }
-    return { lessons, usage: { total_tokens: tokenCount }, model: payload.modelVersion || model };
+    return { lessons, extras, usage: { total_tokens: tokenCount }, model: payload.modelVersion || model };
 };
 
 const MAX_ATTEMPTS = 2;
@@ -196,4 +238,4 @@ const generateLessons = async (options) => {
     throw lastError;
 };
 
-module.exports = { LESSON_SCHEMA, buildLessonPrompt, generateLessons };
+module.exports = { LESSON_SCHEMA, buildLessonPrompt, generateLessons, toExtra };

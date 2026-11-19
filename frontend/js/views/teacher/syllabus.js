@@ -129,6 +129,31 @@ const lessonEditor = (unit, unitIndex, redraw) => {
     return box;
 };
 
+// Ejercicios extra de corrección automática generados por la IA. Se muestran CON la solución para que el docente
+// verifique (p. ej. que la salida de "predecir" esté bien calculada); puede quitarlos antes de publicar.
+const EXTRA_LABEL = { predecir: 'Predecir la salida', completar: 'Completar el código', ordenar: 'Ordenar las líneas', corregir: 'Corregir el código' };
+
+const solutionSummary = (extra) => {
+    if (extra.tipo === 'predecir') return `Respuesta correcta: ${extra.solucion.respuesta}${extra.solucion.alternativas?.length ? ` (también: ${extra.solucion.alternativas.join(', ')})` : ''}`;
+    if (extra.tipo === 'completar') return `Huecos: ${extra.solucion.huecos.map((options, i) => `${i + 1}) ${options.join(' | ')}`).join('   ')}`;
+    if (extra.tipo === 'ordenar') return `Orden correcto:\n${extra.solucion.lineas.join('\n')}`;
+    return `Debe contener: ${extra.solucion.debe_contener.join(' · ') || '—'}\nNo debe contener: ${extra.solucion.no_debe_contener.join(' · ') || '—'}`;
+};
+
+const extrasEditor = (unit, redraw) => {
+    const extras = unit.extras || [];
+    return h('details', { class: 'syl-exercise' },
+        h('summary', {}, `Ejercicios de corrección automática (${extras.length})`),
+        extras.length === 0
+            ? h('p', { class: 'small muted' }, 'Aún no hay. "Generar lecciones con IA" también propone ejercicios de predecir, completar, ordenar y corregir; también puedes crearlos después en el mundo.')
+            : extras.map((extra, index) => h('div', { class: 'syl-question' },
+                h('div', { class: 'row' }, h('span', { class: 'chip blue' }, EXTRA_LABEL[extra.tipo] || extra.tipo), h('strong', {}, extra.titulo)),
+                h('p', { class: 'small' }, extra.enunciado),
+                extra.material?.codigo ? h('pre', { class: 'typed-code', tabindex: '0' }, extra.material.codigo) : null,
+                h('pre', { class: 'typed-code', tabindex: '0', 'aria-label': 'Solución (solo la ve el docente)' }, solutionSummary(extra)),
+                h('button', { class: 'btn ghost small', type: 'button', onClick: () => { unit.extras.splice(index, 1); if (unit.extras.length === 0) delete unit.extras; redraw(); } }, 'Quitar este ejercicio'))));
+};
+
 export default async function syllabusView({ root, params }) {
     document.title = 'Sílabo con IA · codeInt';
     const courseId = params.id;
@@ -262,8 +287,9 @@ export default async function syllabusView({ root, params }) {
                 h('summary', {}, `Preguntas para sala en vivo (${unit.preguntas_sala.length})`),
                 h('p', { class: 'small muted' }, 'Marca con el círculo la opción correcta. Se usarán en el siguiente paso, el banco de preguntas.'),
                 unit.preguntas_sala.map((question, qIndex) => questionEditor(question, index, qIndex))),
-            lessonEditor(unit, index)));
-        const lessonsButton = h('button', { class: 'btn secondary', type: 'button' }, icon('sparkles', 15), 'Generar lecciones con IA');
+            lessonEditor(unit, index),
+            extrasEditor(unit, () => render())));
+        const lessonsButton = h('button', { class: 'btn secondary', type: 'button' }, icon('sparkles', 15), 'Generar lecciones y ejercicios con IA');
         lessonsButton.addEventListener('click', async () => {
             setBusy(lessonsButton, true, 'La IA está escribiendo…');
             try {

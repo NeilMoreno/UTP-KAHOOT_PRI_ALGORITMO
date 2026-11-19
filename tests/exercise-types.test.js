@@ -59,6 +59,11 @@ test('predecir: acepta alternativas y normaliza espacios, mayúsculas y comillas
     assert.equal(grade('7'), 0);
     assert.equal(grade(''), 0);
     assert.equal(normalizeAnswer("  'Hola   Mundo' "), 'hola mundo');
+    const multi = (answer) => gradeLocal({ tipo: 'predecir', solucion: { respuesta: '0\n1' }, answer }).puntaje;
+    assert.equal(multi('0 1'), 100);
+    assert.equal(multi('01'), 100);
+    assert.equal(multi('0\n1'), 100);
+    assert.equal(multi('1 0'), 0, 'el orden sí importa');
 });
 
 test('completar: puntaje proporcional y aviso de qué huecos fallaron', () => {
