@@ -337,9 +337,84 @@ const getDemographicsSummary = async (req, res, next) => {
     }
 };
 
+/**
+ * Informe de integridad del curso: envíos con riesgo ámbar/rojo o con intento de manipulación de la nota.
+ * Es evidencia para el docente, nunca una sanción automática.
+ * GET /api/analiticas/curso/:id_curso/integridad?revisados=1
+ */
+const getIntegrityReport = async (req, res, next) => {
+    try {
+        const { id_curso } = req.params;
+        await getAuthorizedCourse(id_curso, req.user);
+        const includeReviewed = req.query.revisados === '1';
+
+        const items = await query(`
+            SELECT ee.id_envio_ejercicio, ee.fecha_envio, ee.riesgo, ee.motivos_riesgo, ee.senales,
+                   ee.similitud, ee.revisado_en,
+                   u.id_usuario AS id_estudiante, concat_ws(' ', u.nombre, u.apellido) AS estudiante,
+                   e.id_ejercicio, e.titulo AS ejercicio, m.orden AS mundo_orden,
+                   ev.puntaje, ev.puntaje_modelo, COALESCE(ev.alerta_manipulacion, false) AS alerta_manipulacion,
+                   su.id_estudiante AS id_similar,
+                   concat_ws(' ', us.nombre, us.apellido) AS estudiante_similar
+              FROM envio_ejercicio ee
+              JOIN usuario u ON u.id_usuario = ee.id_estudiante
+              JOIN ejercicio e ON e.id_ejercicio = ee.id_ejercicio
+              JOIN mundo m ON m.id_mundo = e.id_mundo
+              LEFT JOIN LATERAL (
+                   SELECT puntaje, puntaje_modelo, alerta_manipulacion
+                     FROM evaluacion_ia WHERE id_envio_ejercicio = ee.id_envio_ejercicio
+                    ORDER BY fecha_evaluacion DESC LIMIT 1) ev ON true
+              LEFT JOIN envio_ejercicio su ON su.id_envio_ejercicio = ee.id_envio_similar
+              LEFT JOIN usuario us ON us.id_usuario = su.id_estudiante
+             WHERE ee.id_curso = $1
+               AND ee.riesgo <> 'verde'
+               AND ($2::boolean OR ee.revisado_en IS NULL)
+             ORDER BY (ee.riesgo = 'rojo') DESC, ee.fecha_envio DESC
+             LIMIT 200;
+        `, [id_curso, includeReviewed]);
+
+        const summary = await query(`
+            SELECT count(*) FILTER (WHERE riesgo = 'rojo' AND revisado_en IS NULL)::int AS rojos_pendientes,
+                   count(*) FILTER (WHERE riesgo = 'ambar' AND revisado_en IS NULL)::int AS ambar_pendientes,
+                   count(*) FILTER (WHERE riesgo <> 'verde' AND revisado_en IS NOT NULL)::int AS revisados
+              FROM envio_ejercicio WHERE id_curso = $1;
+        `, [id_curso]);
+
+        res.json({ success: true, resumen: summary.rows[0], data: items.rows });
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * Marca (o desmarca) un envío como revisado por el docente.
+ * PATCH /api/analiticas/curso/:id_curso/integridad/:id_envio   { revisado: boolean }
+ */
+const reviewIntegrityItem = async (req, res, next) => {
+    try {
+        const { id_curso, id_envio } = req.params;
+        await getAuthorizedCourse(id_curso, req.user, { write: true });
+        if (!isUuid(id_envio)) throw httpError(400, 'Identificador de envío no válido.', 'INVALID_ID');
+        if (typeof req.body?.revisado !== 'boolean') throw httpError(400, 'Indica si el envío fue revisado.', 'INVALID_BODY');
+        const result = await query(`
+            UPDATE envio_ejercicio
+               SET revisado_en = CASE WHEN $3::boolean THEN now() ELSE NULL END,
+                   revisado_por = CASE WHEN $3::boolean THEN $4::uuid ELSE NULL END
+             WHERE id_envio_ejercicio = $2 AND id_curso = $1
+            RETURNING id_envio_ejercicio, revisado_en;
+        `, [id_curso, id_envio, req.body.revisado, req.user.id_usuario]);
+        if (result.rowCount === 0) throw httpError(404, 'Envío no encontrado en este curso.', 'NOT_FOUND');
+        res.json({ success: true, data: result.rows[0] });
+    } catch (error) {
+        next(error);
+    }
+};
+
 module.exports = {
     getDemographicsSummary,
     getCoursesSummary,
     getCourseDetail,
-    getStudentDetail
+    getStudentDetail,
+    getIntegrityReport,
+    reviewIntegrityItem
 };

@@ -1,5 +1,5 @@
 import {
-    h, icon, skeleton, errorMessage, formatNumber, formatDate, openModal
+    h, icon, skeleton, errorMessage, formatNumber, formatDate, openModal, toast
 } from '../../ui.js';
 import { api } from '../../api.js';
 import { toCsv, downloadCsv } from '../../csv.js';
@@ -206,6 +206,69 @@ export default async function analyticsCourseView({ root, params, user }) {
                     }, 'Detalle'))))))));
     };
 
+    // ---- Integridad: evidencia para el docente (no sanciona nada automáticamente) ----
+    const REASON_LABEL = {
+        PEGADO_GRANDE: 'Pegó casi todo el código',
+        ENVIO_MUY_RAPIDO: 'Envío muy rápido',
+        SALIO_DE_LA_PESTANA: 'Salió de la pestaña varias veces',
+        COPIO_EL_ENUNCIADO: 'Copió el enunciado',
+        SIMILITUD_ALTA: 'Código muy parecido al de otro estudiante',
+        SIMILITUD_MUY_ALTA: 'Código casi idéntico al de otro estudiante',
+        INTENTO_DE_MANIPULACION: 'Texto dirigido a la IA para subir la nota'
+    };
+    let integrity = null;
+    let showReviewed = false;
+
+    const loadIntegrity = async () => {
+        contentHost.replaceChildren(skeleton(160));
+        try {
+            integrity = await api(`/analiticas/curso/${params.id}/integridad${showReviewed ? '?revisados=1' : ''}`);
+        } catch (error) {
+            contentHost.replaceChildren(h('div', { class: 'inline-error' }, errorMessage(error)));
+            return;
+        }
+        renderIntegrity();
+    };
+
+    const renderIntegrity = () => {
+        const { resumen, data: items } = integrity;
+        const toggle = h('label', { class: 'check-inline' },
+            h('input', { type: 'checkbox', checked: showReviewed, onChange: (event) => { showReviewed = event.target.checked; loadIntegrity(); } }),
+            ' Mostrar también los revisados');
+        const header = h('div', { class: 'section-heading' },
+            h('div', {}, h('strong', {}, `${resumen.rojos_pendientes} en rojo · ${resumen.ambar_pendientes} en ámbar por revisar`),
+                h('p', { class: 'muted small' }, 'Son señales, no pruebas: pegado, salidas de la pestaña, tiempos y parecido entre estudiantes. Decide tú.')),
+            toggle);
+        if (items.length === 0) {
+            contentHost.replaceChildren(header, emptyState('Sin envíos por revisar', 'Cuando un envío tenga señales de riesgo aparecerá aquí.'));
+            return;
+        }
+        contentHost.replaceChildren(header, h('div', { class: 'stack' }, items.map((item) => {
+            const reviewButton = h('button', { class: 'btn ghost small', type: 'button' }, item.revisado_en ? 'Desmarcar revisado' : 'Marcar como revisado');
+            reviewButton.addEventListener('click', async () => {
+                try {
+                    await api(`/analiticas/curso/${params.id}/integridad/${item.id_envio_ejercicio}`, { method: 'PATCH', body: { revisado: !item.revisado_en } });
+                    await loadIntegrity();
+                } catch (error) { toast(errorMessage(error), 'error'); }
+            });
+            const signals = item.senales || {};
+            return h('article', { class: `card integrity-item risk-${item.riesgo}` },
+                h('div', { class: 'section-heading' },
+                    h('div', {},
+                        h('strong', {}, item.estudiante), ' · ', `Mundo ${item.mundo_orden}: ${item.ejercicio}`,
+                        h('p', { class: 'muted small' }, formatDate(item.fecha_envio),
+                            item.puntaje === null || item.puntaje === undefined ? '' : ` · nota ${item.puntaje}`,
+                            item.alerta_manipulacion && item.puntaje_modelo !== null ? ` (la IA habría puesto ${item.puntaje_modelo})` : '')),
+                    h('span', { class: `chip risk-chip ${item.riesgo}` }, item.riesgo === 'rojo' ? 'Rojo' : 'Ámbar')),
+                h('ul', { class: 'integrity-reasons' }, item.motivos_riesgo.map((reason) => h('li', {}, REASON_LABEL[reason] || reason))),
+                item.estudiante_similar ? h('p', { class: 'small' }, `Parecido ${Math.round(Number(item.similitud) * 100)} % con el código de ${item.estudiante_similar}.`) : null,
+                h('p', { class: 'small muted' },
+                    `Pegó ${signals.pegados || 0} vez/veces (${signals.chars_pegados || 0} caracteres) · salió ${signals.cambios_foco || 0} vez/veces (${signals.segundos_fuera || 0} s) · `,
+                    `abierto ${signals.segundos_abierto || 0} s`),
+                h('div', { class: 'row' }, reviewButton));
+        })));
+    };
+
     const renderErrors = () => {
         if (data.categorias_error.length === 0) {
             contentHost.replaceChildren(emptyState('Sin evaluaciones registradas', 'Las categorías de error aparecerán cuando los estudiantes envíen ejercicios a la IA.'));
@@ -249,7 +312,7 @@ export default async function analyticsCourseView({ root, params, user }) {
 
     const renderTab = () => {
         tabHost.replaceChildren(h('div', { class: 'segmented', role: 'tablist', 'aria-label': 'Secciones de analíticas' },
-            [['mundos', 'Mundos'], ['estudiantes', 'Estudiantes'], ['errores', 'Errores'], ['salas', 'Salas']].map(([key, label]) =>
+            [['mundos', 'Mundos'], ['estudiantes', 'Estudiantes'], ['errores', 'Errores'], ['integridad', 'Integridad'], ['salas', 'Salas']].map(([key, label]) =>
                 h('button', {
                     type: 'button', role: 'tab', 'aria-selected': activeTab === key ? 'true' : 'false',
                     class: activeTab === key ? 'is-active' : '',
@@ -260,6 +323,7 @@ export default async function analyticsCourseView({ root, params, user }) {
         if (activeTab === 'mundos') renderWorlds();
         else if (activeTab === 'estudiantes') renderStudents();
         else if (activeTab === 'errores') renderErrors();
+        else if (activeTab === 'integridad') loadIntegrity();
         else renderRooms();
     };
 

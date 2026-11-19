@@ -3,6 +3,7 @@
 const { randomUUID } = require('crypto');
 const { query, getClient } = require('../config/database');
 const { getAuthorizedExercise, getAuthorizedWorld } = require('../services/authorizationService');
+const { sanitizeSignals, findMostSimilar, assessRisk } = require('../services/integrityService');
 const { DEFAULT_MAX_CODE_LENGTH } = require('../services/pseintValidator');
 const { getLanguage } = require('../config/languages');
 const { evaluatePseIntWithGemini } = require('../services/geminiService');
@@ -178,6 +179,16 @@ const submitAndEvaluate = async (req, res, next) => {
             advertencias: validation.warnings
         });
 
+        // Integridad académica: señales del navegador + similitud con otros estudiantes. Es evidencia para el
+        // docente; nunca bloquea el envío y un fallo aquí no debe impedir que el estudiante entregue.
+        const signals = sanitizeSignals(req.body?.senales);
+        const templateRow = await query('SELECT plantilla_pseint FROM ejercicio WHERE id_ejercicio = $1;', [exercise.id_ejercicio]).catch(() => ({ rows: [] }));
+        const similar = await findMostSimilar({
+            idEjercicio: exercise.id_ejercicio, idEstudiante: req.user.id_usuario, code,
+            language: exercise.lenguaje, template: templateRow.rows[0]?.plantilla_pseint || ''
+        }).catch(() => ({ similitud: 0, id_envio_similar: null }));
+        const risk = assessRisk({ senales: signals, codeLength: code.length, similitud: similar.similitud });
+
         const client = await getClient();
         let submission;
         let created = false;
@@ -204,8 +215,9 @@ const submitAndEvaluate = async (req, res, next) => {
                     INSERT INTO envio_ejercicio (
                         id_operacion, id_matricula, id_estudiante, id_ejercicio,
                         id_curso, codigo_pseint, sintaxis_valida,
-                        mensaje_sintaxis, estado_evaluacion
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                        mensaje_sintaxis, estado_evaluacion,
+                        senales, riesgo, motivos_riesgo, similitud, id_envio_similar
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11, $12::jsonb, $13, $14)
                     RETURNING id_envio_ejercicio, id_estudiante, id_ejercicio,
                               codigo_pseint, estado_evaluacion;
                 `, [
@@ -217,7 +229,12 @@ const submitAndEvaluate = async (req, res, next) => {
                     code,
                     validation.valid,
                     validationMessage,
-                    validation.valid ? 'pendiente' : 'rechazado_local'
+                    validation.valid ? 'pendiente' : 'rechazado_local',
+                    signals ? JSON.stringify(signals) : null,
+                    risk.riesgo,
+                    JSON.stringify(risk.motivos),
+                    similar.similitud,
+                    similar.id_envio_similar
                 ]);
                 submission = inserted.rows[0];
                 created = true;
@@ -375,6 +392,17 @@ const submitAndEvaluate = async (req, res, next) => {
                            END,
                            fecha_inicio = COALESCE(progreso_mundo.fecha_inicio, now());
                 `, [enrollment.id_matricula, exercise.id_curso, exercise.mundo_orden]);
+            }
+
+            if (integrity.manipulacion) {
+                // Un intento de manipular la nota siempre queda en rojo para la revisión del docente.
+                await finalClient.query(`
+                    UPDATE envio_ejercicio
+                       SET riesgo = 'rojo',
+                           motivos_riesgo = CASE WHEN motivos_riesgo ? 'INTENTO_DE_MANIPULACION' THEN motivos_riesgo
+                                                 ELSE motivos_riesgo || '"INTENTO_DE_MANIPULACION"'::jsonb END
+                     WHERE id_envio_ejercicio = $1;
+                `, [submissionId]);
             }
 
             const logrosDesbloqueados = await unlockAchievements(finalClient, req.user.id_usuario);

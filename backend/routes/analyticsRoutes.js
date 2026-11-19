@@ -18,5 +18,7 @@ router.use(authorizeRoles('docente', 'superadministrador'));
 router.get('/cursos', analyticsController.getCoursesSummary);
 router.get('/curso/:id_curso', analyticsController.getCourseDetail);
 router.get('/curso/:id_curso/estudiante/:id_estudiante', analyticsController.getStudentDetail);
+router.get('/curso/:id_curso/integridad', analyticsController.getIntegrityReport);
+router.patch('/curso/:id_curso/integridad/:id_envio', analyticsController.reviewIntegrityItem);
 
 module.exports = router;

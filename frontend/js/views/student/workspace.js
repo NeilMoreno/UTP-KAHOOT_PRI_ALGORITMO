@@ -2,6 +2,7 @@ import { h, icon, toast, setBusy, errorMessage, formatDate } from '../../ui.js';
 import { api, request, ApiError } from '../../api.js';
 import { refreshUser } from '../../state.js';
 import { createCodeEditor } from '../../code-editor.js';
+import { createSignalTracker } from '../../integrity-signals.js';
 import { showEvaluationResult, PASS_SCORE } from './result-modal.js';
 
 const MAX_POLLS = 10;
@@ -50,6 +51,8 @@ export default async function workspaceView({ root, params, user }) {
         onChange: (text) => writeDraft(text)
     });
 
+    const statementElement = h('div', { class: 'statement' }, exercise.enunciado);
+    const tracker = createSignalTracker({ editorInput: editor.input, statementElement });
     const problems = h('div', { 'aria-live': 'polite' });
     const historyHost = h('ul', { class: 'history-list' });
 
@@ -192,7 +195,7 @@ export default async function workspaceView({ root, params, user }) {
             const { status, body } = await request(`/ejercicios/${id}/envios`, {
                 method: 'POST',
                 headers: { 'Idempotency-Key': attempt.key },
-                body: { codigo_pseint: code }
+                body: { codigo_pseint: code, senales: tracker.snapshot() }
             });
 
             if (status === 202) {
@@ -243,7 +246,7 @@ export default async function workspaceView({ root, params, user }) {
                         h('span', { class: 'chip blue' }, `Mundo ${exercise.mundo_orden}: ${exercise.mundo_nombre}`),
                         h('span', { class: 'chip xp' }, icon('bolt', 13), `${exercise.xp_recompensa} XP`),
                         passed ? h('span', { class: 'chip green' }, icon('check', 13), 'Aprobado') : null),
-                    h('div', { class: 'statement' }, exercise.enunciado)),
+                    statementElement),
                 h('section', { class: 'card' },
                     h('div', { class: 'card-title' }, h('h2', { style: { fontSize: '1.05rem' } }, 'Mis intentos')),
                     historyHost)),
@@ -255,7 +258,7 @@ export default async function workspaceView({ root, params, user }) {
                         resetButton),
                     editor.element,
                     h('div', { class: 'editor-bar', style: { borderTop: '1px solid var(--border)', borderBottom: 0 } },
-                        h('span', { id: 'editor-help', class: 'hint' }, 'Tab inserta sangría · Esc y luego Tab sale del editor'),
+                        h('span', { id: 'editor-help', class: 'hint' }, 'Tab inserta sangría · Esc y luego Tab sale del editor. Al enviar se registra si pegaste texto o saliste de la pestaña, para que tu docente pueda revisar.'),
                         h('div', { class: 'row' }, validateButton, submitButton))),
                 problems))));
 
