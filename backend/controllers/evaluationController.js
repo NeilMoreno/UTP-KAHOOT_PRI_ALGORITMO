@@ -6,6 +6,7 @@ const { getAuthorizedExercise, getAuthorizedWorld } = require('../services/autho
 const { sanitizeSignals, findMostSimilar, assessRisk } = require('../services/integrityService');
 const { DEFAULT_MAX_CODE_LENGTH } = require('../services/pseintValidator');
 const { getLanguage } = require('../config/languages');
+const { readAnswer, gradeLocal } = require('../services/exerciseTypes');
 const { evaluatePseIntWithGemini } = require('../services/geminiService');
 const { unlockAchievements } = require('../services/achievementService');
 const { getEstudianteGamificationSummary } = require('../services/gamificationService');
@@ -66,7 +67,7 @@ const getExerciseContext = async (idExercise, user) => {
     await getAuthorizedWorld(authorized.id_mundo, user, { enforceSequence: true });
     const result = await query(`
         SELECT e.id_ejercicio, e.id_mundo, e.id_curso, e.titulo, e.enunciado,
-               e.rubrica, e.fuente_silabo, e.nivel,
+               e.rubrica, e.fuente_silabo, e.nivel, e.tipo, e.solucion,
                e.xp_recompensa, m.orden AS mundo_orden,
                c.id_docente, c.id_institucion, c.lenguaje
           FROM ejercicio e
@@ -148,9 +149,13 @@ const respondExistingSubmission = async (res, submission) => {
 
 const validateCode = async (req, res, next) => {
     try {
-        const code = getCode(req.body);
         const exercise = await getExerciseContext(req.params.id_ejercicio, req.user);
         await getActiveEnrollment(exercise.id_curso, req.user.id_usuario);
+        // Predecir, completar y ordenar no son código: no hay sintaxis que revisar.
+        if (exercise.tipo !== 'escribir' && exercise.tipo !== 'corregir') {
+            return res.json({ success: true, valido: true, consume_tokens_ia: false, validacion: { valid: true, errors: [], warnings: [], summary: 'No aplica.' } });
+        }
+        const code = getCode(req.body);
         const validation = getLanguage(exercise.lenguaje).validate(code, { maxLength: DEFAULT_MAX_CODE_LENGTH });
         return res.json({
             success: true,
@@ -168,11 +173,16 @@ const submitAndEvaluate = async (req, res, next) => {
     let submissionId;
     let reservationCreated = false;
     try {
-        const code = getCode(req.body);
         operationId = getOperationId(req);
         const exercise = await getExerciseContext(req.params.id_ejercicio, req.user);
         const enrollment = await getActiveEnrollment(exercise.id_curso, req.user.id_usuario);
-        const validation = getLanguage(exercise.lenguaje).validate(code, { maxLength: DEFAULT_MAX_CODE_LENGTH });
+        // Tipos con corrección local (sin IA ni cuota): predecir, completar, ordenar y corregir.
+        const local = exercise.tipo !== 'escribir';
+        const isCode = !local || exercise.tipo === 'corregir';
+        const code = isCode ? getCode(req.body) : readAnswer(exercise.tipo, req.body);
+        const validation = isCode
+            ? getLanguage(exercise.lenguaje).validate(code, { maxLength: DEFAULT_MAX_CODE_LENGTH })
+            : { valid: true, errors: [], warnings: [], summary: 'No aplica.' };
         const validationMessage = JSON.stringify({
             resumen: validation.summary,
             errores: validation.errors,
@@ -181,12 +191,16 @@ const submitAndEvaluate = async (req, res, next) => {
 
         // Integridad académica: señales del navegador + similitud con otros estudiantes. Es evidencia para el
         // docente; nunca bloquea el envío y un fallo aquí no debe impedir que el estudiante entregue.
-        const signals = sanitizeSignals(req.body?.senales);
-        const templateRow = await query('SELECT plantilla_pseint FROM ejercicio WHERE id_ejercicio = $1;', [exercise.id_ejercicio]).catch(() => ({ rows: [] }));
-        const similar = await findMostSimilar({
-            idEjercicio: exercise.id_ejercicio, idEstudiante: req.user.id_usuario, code,
-            language: exercise.lenguaje, template: templateRow.rows[0]?.plantilla_pseint || ''
-        }).catch(() => ({ similitud: 0, id_envio_similar: null }));
+        const signals = isCode ? sanitizeSignals(req.body?.senales) : null;
+        const templateRow = isCode
+            ? await query('SELECT plantilla_pseint FROM ejercicio WHERE id_ejercicio = $1;', [exercise.id_ejercicio]).catch(() => ({ rows: [] }))
+            : { rows: [] };
+        const similar = isCode
+            ? await findMostSimilar({
+                idEjercicio: exercise.id_ejercicio, idEstudiante: req.user.id_usuario, code,
+                language: exercise.lenguaje, template: templateRow.rows[0]?.plantilla_pseint || ''
+            }).catch(() => ({ similitud: 0, id_envio_similar: null }))
+            : { similitud: 0, id_envio_similar: null };
         const risk = assessRisk({ senales: signals, codeLength: code.length, similitud: similar.similitud });
 
         const client = await getClient();
@@ -273,11 +287,14 @@ const submitAndEvaluate = async (req, res, next) => {
 
         const reservedTokens = parsePositiveInteger(process.env.GEMINI_TOKEN_RESERVATION, 16000);
         try {
-            await query(
-                `SELECT * FROM reservar_uso_ia($1, $2, 'evaluacion', $3, $4, NULL);`,
-                [exercise.id_docente, operationId, reservedTokens, submissionId]
-            );
-            reservationCreated = true;
+            // La corrección local no usa IA: no reserva ni consume cuota del docente.
+            if (!local) {
+                await query(
+                    `SELECT * FROM reservar_uso_ia($1, $2, 'evaluacion', $3, $4, NULL);`,
+                    [exercise.id_docente, operationId, reservedTokens, submissionId]
+                );
+                reservationCreated = true;
+            }
         } catch (error) {
             await query(
                 `UPDATE envio_ejercicio SET estado_evaluacion = 'fallido' WHERE id_envio_ejercicio = $1;`,
@@ -289,7 +306,15 @@ const submitAndEvaluate = async (req, res, next) => {
             throw error;
         }
 
-        const geminiResult = await evaluatePseIntWithGemini({ exercise, code });
+        const geminiResult = local
+            ? {
+                evaluation: gradeLocal({ tipo: exercise.tipo, solucion: exercise.solucion, answer: code, language: exercise.lenguaje }),
+                integrity: null,
+                usage: { prompt_tokens: 0, response_tokens: 0, thinking_tokens: 0, total_tokens: 0 },
+                model: 'local',
+                response_id: null
+            }
+            : await evaluatePseIntWithGemini({ exercise, code });
         const evaluation = geminiResult.evaluation;
         const integrity = geminiResult.integrity || { manipulacion: false, motivos: [], puntaje_modelo: null };
         const finalClient = await getClient();
@@ -407,15 +432,17 @@ const submitAndEvaluate = async (req, res, next) => {
 
             const logrosDesbloqueados = await unlockAchievements(finalClient, req.user.id_usuario);
 
-            await finalClient.query(`
-                UPDATE uso_ia
-                   SET proveedor_ia = 'gemini', modelo_ia = $2
-                 WHERE id_operacion = $1;
-            `, [operationId, geminiResult.model]);
-            await finalClient.query(
-                'SELECT * FROM confirmar_uso_ia($1, $2, true);',
-                [operationId, geminiResult.usage.total_tokens]
-            );
+            if (!local) {
+                await finalClient.query(`
+                    UPDATE uso_ia
+                       SET proveedor_ia = 'gemini', modelo_ia = $2
+                     WHERE id_operacion = $1;
+                `, [operationId, geminiResult.model]);
+                await finalClient.query(
+                    'SELECT * FROM confirmar_uso_ia($1, $2, true);',
+                    [operationId, geminiResult.usage.total_tokens]
+                );
+            }
             await finalClient.query(`
                 UPDATE envio_ejercicio
                    SET estado_evaluacion = 'completado'

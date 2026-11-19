@@ -4,6 +4,7 @@
 // ==============================================================
 
 const { getValidatedWorlds } = require('../services/diagnosticService');
+const { validateTypedExercise, publicMaterial } = require('../services/exerciseTypes');
 const { query } = require('../config/database');
 const { httpError } = require('../utils/httpError');
 const { getLanguage, publicLanguage } = require('../config/languages');
@@ -97,7 +98,7 @@ const getEjerciciosByMundo = async (req, res, next) => {
             // Consultar ejercicios adjuntando el último envío y puntaje del estudiante
             const sql = `
                 SELECT e.id_ejercicio, e.id_mundo, e.id_curso, e.titulo, e.enunciado,
-                       e.plantilla_pseint, e.orden, e.xp_recompensa,
+                       e.plantilla_pseint, e.orden, e.xp_recompensa, e.tipo,
                        ult_envio.id_envio_ejercicio,
                        ult_envio.fecha_envio,
                        ult_envio.sintaxis_valida,
@@ -140,7 +141,7 @@ const getEjerciciosByMundo = async (req, res, next) => {
             // Docente / Admin: listado de ejercicios
             const sql = `
                 SELECT e.id_ejercicio, e.id_mundo, e.id_curso, e.titulo, e.enunciado,
-                       e.plantilla_pseint, e.orden, e.xp_recompensa,
+                       e.plantilla_pseint, e.orden, e.xp_recompensa, e.tipo, e.material, e.solucion,
                        (SELECT count(*) FROM envio_ejercicio ee WHERE ee.id_ejercicio = e.id_ejercicio)::INTEGER AS total_envios
                 FROM ejercicio e
                 WHERE e.id_mundo = $1
@@ -182,6 +183,7 @@ const getEjercicioById = async (req, res, next) => {
                    e.plantilla_pseint, e.orden, e.xp_recompensa,
                    m.nombre AS mundo_nombre, m.orden AS mundo_orden,
                    e.nivel, e.rubrica, e.fuente_silabo,
+                   e.tipo, e.material, e.solucion,
                    c.nombre AS curso_nombre, c.codigo_curso, c.lenguaje
             FROM ejercicio e
             JOIN mundo m ON m.id_mundo = e.id_mundo
@@ -201,6 +203,11 @@ const getEjercicioById = async (req, res, next) => {
         const ejercicio = result.rows[0];
         // Lenguaje del curso con su plantilla base (se usa si el ejercicio no trae una propia).
         ejercicio.lenguaje = publicLanguage(ejercicio.lenguaje);
+        // El estudiante recibe solo el material (ordenar llega mezclado); la solución es solo del docente.
+        if (user.rol === 'estudiante') {
+            ejercicio.material = publicMaterial(ejercicio.tipo, ejercicio.material, ejercicio.solucion);
+            delete ejercicio.solucion;
+        }
 
         // Si es estudiante, obtener su último envío y evaluación
         if (user.rol === 'estudiante') {
@@ -236,6 +243,8 @@ const getEjercicioById = async (req, res, next) => {
 const createEjercicio = async (req, res, next) => {
     try {
         const { id_mundo, titulo, enunciado, plantilla_pseint, orden, xp_recompensa = 50 } = req.body;
+        // Tipo de ejercicio (por defecto escribir código) con su material y solución.
+        const typed = validateTypedExercise({ tipo: req.body.tipo || 'escribir', material: req.body.material, solucion: req.body.solucion });
 
         if (!id_mundo || !titulo || !enunciado || !orden) {
             return res.status(400).json({
@@ -270,18 +279,21 @@ const createEjercicio = async (req, res, next) => {
         }
 
         const insertSql = `
-            INSERT INTO ejercicio (id_mundo, id_curso, titulo, enunciado, plantilla_pseint, orden, xp_recompensa)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
-            RETURNING id_ejercicio, id_mundo, id_curso, titulo, enunciado, plantilla_pseint, orden, xp_recompensa;
+            INSERT INTO ejercicio (id_mundo, id_curso, titulo, enunciado, plantilla_pseint, orden, xp_recompensa, tipo, material, solucion)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb)
+            RETURNING id_ejercicio, id_mundo, id_curso, titulo, enunciado, plantilla_pseint, orden, xp_recompensa, tipo, material, solucion;
         `;
         const result = await query(insertSql, [
             id_mundo,
             id_curso,
             titulo.trim(),
             enunciado.trim(),
-            plantilla_pseint || getLanguage(mundoRes.rows[0].lenguaje).plantilla,
+            typed.tipo === 'escribir' ? (plantilla_pseint || getLanguage(mundoRes.rows[0].lenguaje).plantilla) : (plantilla_pseint || null),
             ordenNumerico,
-            xpNumerico
+            xpNumerico,
+            typed.tipo,
+            typed.material ? JSON.stringify(typed.material) : null,
+            typed.solucion ? JSON.stringify(typed.solucion) : null
         ]);
 
         return res.status(201).json({
@@ -324,15 +336,24 @@ const updateEjercicio = async (req, res, next) => {
             }
         }
 
+        // El tipo no cambia al editar; el material y la solución (si vienen) se validan contra el tipo actual.
+        let typed = null;
+        if (req.body.material !== undefined || req.body.solucion !== undefined) {
+            const current = await query('SELECT tipo FROM ejercicio WHERE id_ejercicio = $1;', [id_ejercicio]);
+            typed = validateTypedExercise({ tipo: current.rows[0]?.tipo, material: req.body.material, solucion: req.body.solucion });
+        }
+
         const updateSql = `
             UPDATE ejercicio
             SET titulo = COALESCE($1, titulo),
                 enunciado = COALESCE($2, enunciado),
                 plantilla_pseint = COALESCE($3, plantilla_pseint),
                 orden = COALESCE($4, orden),
-                xp_recompensa = COALESCE($5, xp_recompensa)
+                xp_recompensa = COALESCE($5, xp_recompensa),
+                material = COALESCE($7::jsonb, material),
+                solucion = COALESCE($8::jsonb, solucion)
             WHERE id_ejercicio = $6
-            RETURNING id_ejercicio, id_mundo, id_curso, titulo, enunciado, plantilla_pseint, orden, xp_recompensa;
+            RETURNING id_ejercicio, id_mundo, id_curso, titulo, enunciado, plantilla_pseint, orden, xp_recompensa, tipo, material, solucion;
         `;
         const result = await query(updateSql, [
             titulo ? titulo.trim() : null,
@@ -340,7 +361,9 @@ const updateEjercicio = async (req, res, next) => {
             plantilla_pseint !== undefined ? plantilla_pseint : null,
             ordenNumerico,
             xpNumerico,
-            id_ejercicio
+            id_ejercicio,
+            typed?.material ? JSON.stringify(typed.material) : null,
+            typed?.solucion ? JSON.stringify(typed.solucion) : null
         ]);
 
         if (result.rowCount === 0) {

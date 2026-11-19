@@ -911,6 +911,14 @@ h3 { font-size: 1rem; }
 :root[data-theme="light"] .risk-chip.ambar { background: #FFF1C2; color: #7A5A00; }
 .check-inline { display: inline-flex; align-items: center; gap: 6px; font-size: .9rem; }
 
+.typed-code { margin: 0; padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--radius-control); background: #0A0F1E; color: #D9E2FF; font-family: var(--font-mono); font-size: .9rem; line-height: 1.6; overflow-x: auto; white-space: pre; }
+.typed-blank { min-width: 7ch; margin: 0 2px; padding: 2px 6px; border: 1px dashed var(--accent); border-radius: 6px; background: rgba(123, 92, 255, .12); color: #FFE066; font: inherit; }
+.typed-blank:focus { outline: 2px solid var(--accent); border-style: solid; }
+.typed-order { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.typed-order-item { display: flex; gap: 10px; align-items: stretch; }
+.typed-line { flex: 1; margin: 0; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius-control); background: #0A0F1E; color: #D9E2FF; font-family: var(--font-mono); font-size: .9rem; white-space: pre; overflow-x: auto; }
+.typed-order-actions { display: flex; gap: 6px; align-items: center; }
+
 /* Landing pública */
 .landing { min-height: 100dvh; display: grid; grid-template-rows: auto 1fr auto; background: radial-gradient(1200px 500px at 80% -10%, var(--accent-soft), transparent 70%), var(--ground); }
 .landing-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: min(100%, 1160px); margin: 0 auto; padding: 18px 20px; }

@@ -78,7 +78,7 @@ test('diagnóstico de entrada: corrección local, convalidación de mundos y un 
         await request(app).get(`/api/ejercicios/mundo/${worlds[3].id_mundo}`).set(sAuth).expect(403);
     } finally {
         if (courseId) {
-            await pool.query(`UPDATE matricula SET estado = 'inactiva' WHERE id_curso = $1`, [courseId]).catch(() => {});
+            await pool.query(`UPDATE matricula SET estado = 'retirada' WHERE id_curso = $1`, [courseId]).catch(() => {});
             await pool.query(`UPDATE curso SET estado = 'inactivo' WHERE id_curso = $1`, [courseId]).catch(() => {});
         }
         await pool.end().catch(() => {});

@@ -64,7 +64,7 @@ test('integridad: las señales quedan registradas, el docente las ve y las marca
         assert.ok(all.data[0].revisado_en);
     } finally {
         if (courseId) {
-            await pool.query(`UPDATE matricula SET estado = 'inactiva' WHERE id_curso = $1`, [courseId]).catch(() => {});
+            await pool.query(`UPDATE matricula SET estado = 'retirada' WHERE id_curso = $1`, [courseId]).catch(() => {});
             await pool.query(`UPDATE curso SET estado = 'inactivo' WHERE id_curso = $1`, [courseId]).catch(() => {});
         }
         await pool.end().catch(() => {});

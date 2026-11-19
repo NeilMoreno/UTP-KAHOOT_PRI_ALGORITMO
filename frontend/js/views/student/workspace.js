@@ -4,6 +4,7 @@ import { refreshUser } from '../../state.js';
 import { createCodeEditor } from '../../code-editor.js';
 import { createSignalTracker } from '../../integrity-signals.js';
 import { showEvaluationResult, PASS_SCORE } from './result-modal.js';
+import { createTypedPanel, TYPE_LABEL } from './typed-exercise.js';
 
 const MAX_POLLS = 10;
 const POLL_MS = 3000;
@@ -42,8 +43,16 @@ export default async function workspaceView({ root, params, user }) {
 
     // El lenguaje es el del curso; si el ejercicio no trae plantilla propia se usa la inicial del lenguaje.
     const language = exercise.lenguaje || { id: 'pseint', nombre: 'PSeInt', plantilla: '' };
-    const starterCode = exercise.plantilla_pseint || language.plantilla || '';
+    // Tipo de ejercicio: escribir y corregir usan el editor; predecir, completar y ordenar tienen su propio panel
+    // y se corrigen en el servidor sin IA.
+    const tipo = exercise.tipo || 'escribir';
+    const isTyped = tipo !== 'escribir' && tipo !== 'corregir';
+    const aiGraded = tipo === 'escribir';
+    const starterCode = tipo === 'corregir'
+        ? (exercise.material?.codigo || '')
+        : (exercise.plantilla_pseint || language.plantilla || '');
     const initialCode = readDraft() ?? exercise.ultimo_envio?.codigo_pseint ?? starterCode;
+    const panel = isTyped ? createTypedPanel(exercise) : null;
     const editor = createCodeEditor({
         language: language.id,
         value: initialCode,
@@ -57,8 +66,10 @@ export default async function workspaceView({ root, params, user }) {
     const historyHost = h('ul', { class: 'history-list' });
 
     const validateButton = h('button', { class: 'btn ghost', type: 'button' }, icon('check', 16), 'Revisar código');
-    const submitButton = h('button', { class: 'btn ai', type: 'button' }, icon('sparkles', 16), 'Enviar a la IA');
-    const resetButton = h('button', { class: 'btn ghost small', type: 'button' }, 'Restaurar plantilla');
+    const submitButton = aiGraded
+        ? h('button', { class: 'btn ai', type: 'button' }, icon('sparkles', 16), 'Enviar a la IA')
+        : h('button', { class: 'btn', type: 'button' }, icon('check', 16), 'Comprobar');
+    const resetButton = h('button', { class: 'btn ghost small', type: 'button' }, tipo === 'corregir' ? 'Restaurar código original' : 'Restaurar plantilla');
 
     const setBusyState = (value) => {
         busy = value;
@@ -104,7 +115,7 @@ export default async function workspaceView({ root, params, user }) {
             return h('li', {}, h('button', {
                 class: 'history-item', type: 'button',
                 onClick: () => {
-                    editor.setValue(item.codigo_pseint);
+                    if (!isTyped) editor.setValue(item.codigo_pseint);
                     const validation = parseValidationMessage(item.mensaje_sintaxis);
                     if (!item.sintaxis_valida && validation) {
                         showProblems({ errors: validation.errores, warnings: validation.advertencias });
@@ -175,27 +186,33 @@ export default async function workspaceView({ root, params, user }) {
 
     submitButton.addEventListener('click', async () => {
         if (busy) return;
-        const code = editor.getValue();
-        if (!code.trim()) return toast('Escribe tu algoritmo antes de enviarlo.');
+        // Predecir/completar/ordenar envían su respuesta; escribir y corregir envían el código.
+        const answer = isTyped ? panel.getAnswer() : editor.getValue();
+        if (isTyped ? !panel.isComplete() : !answer.trim()) {
+            return toast(isTyped ? 'Completa tu respuesta antes de comprobarla.' : 'Escribe tu algoritmo antes de enviarlo.');
+        }
+        const code = isTyped ? JSON.stringify(answer) : answer;
 
         setBusyState(true);
-        setBusy(submitButton, true, 'Evaluando con IA…');
+        setBusy(submitButton, true, aiGraded ? 'Evaluando con IA…' : 'Comprobando…');
         validateButton.disabled = true;
         try {
             // 1) Validación local gratuita: un código inválido nunca llega a la IA.
-            const validation = await validateLocally();
-            showProblems(validation);
-            if (!validation.valid) {
-                toast('Corrige los errores marcados antes de enviar a la IA.', 'error');
-                return;
+            if (!isTyped) {
+                const validation = await validateLocally();
+                showProblems(validation);
+                if (!validation.valid) {
+                    toast('Corrige los errores marcados antes de enviar.', 'error');
+                    return;
+                }
             }
 
-            // 2) Envío idempotente: una clave nueva por cada código distinto.
+            // 2) Envío idempotente: una clave nueva por cada respuesta distinta.
             if (!attempt || attempt.code !== code) attempt = { key: crypto.randomUUID(), code };
             const { status, body } = await request(`/ejercicios/${id}/envios`, {
                 method: 'POST',
                 headers: { 'Idempotency-Key': attempt.key },
-                body: { codigo_pseint: code, senales: tracker.snapshot() }
+                body: isTyped ? { respuesta: answer } : { codigo_pseint: code, senales: tracker.snapshot() }
             });
 
             if (status === 202) {
@@ -251,15 +268,22 @@ export default async function workspaceView({ root, params, user }) {
                     h('div', { class: 'card-title' }, h('h2', { style: { fontSize: '1.05rem' } }, 'Mis intentos')),
                     historyHost)),
             h('section', { class: 'stack' },
-                h('div', { class: 'card editor-card' },
-                    h('div', { class: 'editor-bar' },
-                        h('strong', {}, `Editor ${language.nombre}`),
-                        h('span', { class: `chip lang-${language.id}` }, language.nombre),
-                        resetButton),
-                    editor.element,
-                    h('div', { class: 'editor-bar', style: { borderTop: '1px solid var(--border)', borderBottom: 0 } },
-                        h('span', { id: 'editor-help', class: 'hint' }, 'Tab inserta sangría · Esc y luego Tab sale del editor. Al enviar se registra si pegaste texto o saliste de la pestaña, para que tu docente pueda revisar.'),
-                        h('div', { class: 'row' }, validateButton, submitButton))),
+                isTyped
+                    ? h('div', { class: 'card' },
+                        h('div', { class: 'editor-bar' }, h('strong', {}, TYPE_LABEL[tipo]), h('span', { class: `chip lang-${language.id}` }, language.nombre)),
+                        h('div', { style: { padding: '16px' } }, panel.element),
+                        h('div', { class: 'editor-bar', style: { borderTop: '1px solid var(--border)', borderBottom: 0 } },
+                            h('span', { class: 'hint' }, 'Se corrige al instante, sin IA. Puedes intentarlo las veces que quieras.'),
+                            h('div', { class: 'row' }, submitButton)))
+                    : h('div', { class: 'card editor-card' },
+                        h('div', { class: 'editor-bar' },
+                            h('strong', {}, tipo === 'corregir' ? `Corrige el código · ${language.nombre}` : `Editor ${language.nombre}`),
+                            h('span', { class: `chip lang-${language.id}` }, language.nombre),
+                            resetButton),
+                        editor.element,
+                        h('div', { class: 'editor-bar', style: { borderTop: '1px solid var(--border)', borderBottom: 0 } },
+                            h('span', { id: 'editor-help', class: 'hint' }, 'Tab inserta sangría · Esc y luego Tab sale del editor. Al enviar se registra si pegaste texto o saliste de la pestaña, para que tu docente pueda revisar.'),
+                            h('div', { class: 'row' }, validateButton, submitButton))),
                 problems))));
 
     return () => {

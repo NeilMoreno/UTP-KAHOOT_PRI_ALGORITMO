@@ -53,7 +53,9 @@ export function showEvaluationResult(data, { onUseCode } = {}) {
             h('p', { class: 'muted', style: { margin: '4px 0 8px' } },
                 passed ? 'Tu solución cumple con lo pedido.' : `Necesitas ${PASS_SCORE} puntos para aprobar. Revisa la retroalimentación y vuelve a intentarlo.`),
             h('div', { class: 'row' },
-                h('span', { class: 'chip ai' }, icon('sparkles', 13), 'Evaluado por IA'),
+                data.modelo_ia === 'local'
+                    ? h('span', { class: 'chip' }, icon('check', 13), 'Corrección automática')
+                    : h('span', { class: 'chip ai' }, icon('sparkles', 13), 'Evaluado por IA'),
                 data.categoria_error ? h('span', { class: 'chip' }, CATEGORY_LABEL[data.categoria_error] || data.categoria_error) : null,
                 data.xp_ganada > 0 ? h('span', { class: 'chip xp xp-gain' }, icon('bolt', 13), `+${formatNumber(data.xp_ganada)} XP`) : null))));
 
