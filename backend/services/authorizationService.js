@@ -3,6 +3,7 @@
 const { query } = require('../config/database');
 const { httpError } = require('../utils/httpError');
 const { isUuid } = require('../utils/validation');
+const { getValidatedWorlds } = require('./diagnosticService');
 
 const getAuthorizedCourse = async (idCurso, user, { write = false } = {}) => {
     if (!isUuid(idCurso)) throw httpError(400, 'El identificador del curso no tiene un formato válido.', 'INVALID_ID');
@@ -48,7 +49,9 @@ const getAuthorizedWorld = async (idMundo, user, options = {}) => {
     if (result.rowCount === 0) throw httpError(404, 'Mundo no encontrado.', 'WORLD_NOT_FOUND');
     const world = result.rows[0];
     await getAuthorizedCourse(world.id_curso, user, options);
-    if (options.enforceSequence && user.rol === 'estudiante' && world.orden > 1) {
+    const validated = options.enforceSequence && user.rol === 'estudiante' && world.orden > 1
+        ? await getValidatedWorlds(world.id_curso, user.id_usuario) : 0;
+    if (options.enforceSequence && user.rol === 'estudiante' && world.orden > 1 && world.orden - 1 > validated) {
         const previous = await query(`
             SELECT
                 count(DISTINCT e.id_ejercicio)::integer AS total,

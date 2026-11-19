@@ -3,6 +3,7 @@
 // Universidad Tecnológica del Perú (UTP) - 2026
 // ==============================================================
 
+const { getValidatedWorlds } = require('../services/diagnosticService');
 const { query } = require('../config/database');
 const { httpError } = require('../utils/httpError');
 const { getLanguage, publicLanguage } = require('../config/languages');
@@ -59,7 +60,8 @@ const getEjerciciosByMundo = async (req, res, next) => {
             const id_matricula = matRes.rows[0].id_matricula;
 
             // Verificar si el mundo anterior fue completado (si no es el mundo 1)
-            if (mundo.orden > 1) {
+            const convalidados = await getValidatedWorlds(mundo.id_curso, user.id_usuario);
+            if (mundo.orden > 1 && mundo.orden - 1 > convalidados) {
                 const prevMundoSql = `
                     SELECT m.id_mundo,
                            (SELECT count(*) FROM ejercicio e WHERE e.id_mundo = m.id_mundo)::INTEGER AS total_ejercicios,

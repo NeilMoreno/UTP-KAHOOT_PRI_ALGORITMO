@@ -3,6 +3,7 @@
 // Universidad Tecnológica del Perú (UTP) - 2026
 // ==============================================================
 
+const { getValidatedWorlds } = require('../services/diagnosticService');
 const { query } = require('../config/database');
 const { getAuthorizedCourse, getAuthorizedWorld } = require('../services/authorizationService');
 
@@ -40,6 +41,7 @@ const getMundosByCurso = async (req, res, next) => {
             }
 
             const id_matricula = matRes.rows[0].id_matricula;
+            const convalidados = await getValidatedWorlds(id_curso, user.id_usuario);
 
             // Consultar mundos y el estado registrado en progreso_mundo
             const sql = `
@@ -86,12 +88,14 @@ const getMundosByCurso = async (req, res, next) => {
                     }
                 }
 
-                // Si este mundo está completado, habilita el siguiente
-                mundoAnteriorCompletado = (estadoCalculado === 'completado');
+                // Convalidado por el diagnóstico: cuenta como superado para habilitar el siguiente.
+                const convalidado = index < convalidados;
+                mundoAnteriorCompletado = (estadoCalculado === 'completado') || convalidado;
 
                 return {
                     ...m,
                     estado: estadoCalculado,
+                    convalidado,
                     desbloqueado: estadoCalculado !== 'bloqueado',
                     porcentaje_completado: m.total_ejercicios > 0
                         ? Math.round((m.ejercicios_aprobados / m.total_ejercicios) * 100)
@@ -157,6 +161,7 @@ const getSiguienteEjercicio = async (req, res, next) => {
             return res.status(403).json({ success: false, message: 'No estás matriculado en este curso.' });
         }
 
+        const skipped = await getValidatedWorlds(id_curso, user.id_usuario);
         const result = await query(`
             SELECT ej.id_ejercicio, ej.titulo, ej.orden AS orden_ejercicio,
                    m.id_mundo, m.nombre AS mundo_nombre, m.orden AS orden_mundo,
@@ -164,6 +169,7 @@ const getSiguienteEjercicio = async (req, res, next) => {
               FROM ejercicio ej
               JOIN mundo m ON m.id_mundo = ej.id_mundo
              WHERE m.id_curso = $1
+               AND m.orden > $3
                AND NOT EXISTS (
                    SELECT 1
                      FROM envio_ejercicio ee
@@ -174,7 +180,7 @@ const getSiguienteEjercicio = async (req, res, next) => {
                )
              ORDER BY m.orden ASC, ej.orden ASC
              LIMIT 1;
-        `, [id_curso, matRes.rows[0].id_matricula]);
+        `, [id_curso, matRes.rows[0].id_matricula, skipped]);
 
         // data = null cuando ya aprobó todos los ejercicios del curso
         return res.json({ success: true, data: result.rows[0] || null });
