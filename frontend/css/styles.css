@@ -247,7 +247,7 @@ h3 { font-size: 1rem; }
 .empty-state p { margin: 0; }
 .empty-state.compact { min-height: 74px; }
 
-.field { display: grid; gap: 7px; margin-bottom: 16px; }
+.field { display: grid; gap: 7px; margin-bottom: 16px; align-content: start; }
 .field label { font-weight: 650; }
 .input, .field input, .field select, .field textarea {
     width: 100%; min-height: 42px; padding: 10px 12px; border: 1px solid var(--control);
