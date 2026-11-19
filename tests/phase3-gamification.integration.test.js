@@ -54,7 +54,7 @@ test('fase 3: logros, consumo de IA y recuperación de envíos atascados', { ski
               JOIN mundo m ON m.id_mundo = e.id_mundo
               JOIN curso c ON c.id_curso = e.id_curso
               JOIN matricula ma ON ma.id_curso = c.id_curso
-             WHERE ma.id_estudiante = $1 AND ma.estado = 'activa' AND m.orden = 1
+             WHERE ma.id_estudiante = $1 AND ma.estado = 'activa' AND m.orden = 1 AND e.tipo = 'escribir' AND c.lenguaje = 'pseint'
              ORDER BY e.orden
              LIMIT 1;
         `, [studentId]);
