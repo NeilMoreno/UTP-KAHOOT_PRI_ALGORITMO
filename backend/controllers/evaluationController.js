@@ -274,6 +274,7 @@ const submitAndEvaluate = async (req, res, next) => {
 
         const geminiResult = await evaluatePseIntWithGemini({ exercise, code });
         const evaluation = geminiResult.evaluation;
+        const integrity = geminiResult.integrity || { manipulacion: false, motivos: [], puntaje_modelo: null };
         const finalClient = await getClient();
         try {
             await finalClient.query('BEGIN');
@@ -282,8 +283,9 @@ const submitAndEvaluate = async (req, res, next) => {
                     id_envio_ejercicio, id_estudiante, id_curso, puntaje,
                     retroalimentacion, categoria_error, sugerencias,
                     eficiencia_algoritmica, codigo_sugerido_mejora,
-                    modelo_ia, id_respuesta_proveedor
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10, $11)
+                    modelo_ia, id_respuesta_proveedor,
+                    alerta_manipulacion, motivos_alerta, puntaje_modelo
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10, $11, $12, $13::jsonb, $14)
                 RETURNING id_evaluacion;
             `, [
                 submissionId,
@@ -296,7 +298,10 @@ const submitAndEvaluate = async (req, res, next) => {
                 evaluation.eficiencia_algoritmica,
                 evaluation.codigo_sugerido_mejora,
                 geminiResult.model,
-                geminiResult.response_id
+                geminiResult.response_id,
+                integrity.manipulacion,
+                JSON.stringify(integrity.motivos),
+                integrity.puntaje_modelo
             ]);
             const evaluationId = insertedEvaluation.rows[0].id_evaluacion;
 
