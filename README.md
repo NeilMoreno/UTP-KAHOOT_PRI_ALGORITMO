@@ -1,6 +1,6 @@
 # codeInt
 
-Plataforma EdTech gamificada para aprender algoritmos en PSeInt, con evaluación asistida por IA y salas multijugador síncronas estilo Kahoot.
+Plataforma EdTech gamificada para aprender a programar (PSeInt, Python, JavaScript, Java y C/C++), con evaluación asistida por IA y salas multijugador síncronas estilo Kahoot.
 
 - Frontend: HTML, CSS y JavaScript modular, sin framework ni paso de build (lo sirve el backend). Las fuentes están versionadas en `frontend/fonts/`; `npm run build:assets` solo las regenera.
 - Backend: Node.js, Express, Socket.IO y PostgreSQL.
@@ -9,8 +9,8 @@ Plataforma EdTech gamificada para aprender algoritmos en PSeInt, con evaluación
 ## Funcionalidad disponible
 
 - **Público:** landing con acceso por PIN de sala (pasa por el login) y pantallas de cuenta; registro solo por invitación.
-- **Estudiante:** centro de misiones con "continuar donde quedaste", mapa de mundos, editor PSeInt con validación sintáctica, evaluación con IA, XP, niveles, **racha diaria**, **misiones semanales**, **logros** (ejercicios, mundos, XP, salas, podio y velocidad), **ranking por curso**, **avatar pixel** personalizable (clases tech, piezas por nivel o misión) y salas Kahoot desde el móvil.
-- **Docente:** panel, cursos con **código generado desde el nombre**, contenido base o **generado desde el sílabo con IA** (subir PDF → borrador → editar → publicar), matrícula individual y CSV, edición de ejercicios, host de salas Kahoot y analíticas por curso, estudiante, errores y salas.
+- **Estudiante:** diagnóstico de entrada opcional (salta los mundos que ya domina), lección corta de teoría antes de cada mundo, ejercicios de escribir código, **predecir la salida, completar, ordenar líneas y corregir código** (estos se corrigen al instante sin IA), centro de misiones con "continuar donde quedaste", mapa de mundos, editor PSeInt con validación sintáctica, evaluación con IA, XP, niveles, **racha diaria**, **misiones semanales**, **logros** (ejercicios, mundos, XP, salas, podio y velocidad), **ranking por curso**, **avatar pixel** personalizable (clases tech, piezas por nivel o misión) y salas Kahoot desde el móvil.
+- **Docente:** panel, **informe de integridad** (pegado, salidas de pestaña, parecido entre estudiantes e intentos de manipular la nota con IA), **exportar avance a CSV**, banco de preguntas para salas, **lecciones de teoría generadas con IA y editables**, cursos con **código generado desde el nombre**, contenido base o **generado desde el sílabo con IA** (subir PDF → borrador → editar → publicar), matrícula individual y CSV, edición de ejercicios, host de salas Kahoot y analíticas por curso, estudiante, errores y salas.
 - **Superadministrador:** usuarios, invitaciones, instituciones y dominios, licencias y cuotas de IA con consumo por docente.
 - **Recorrido sugerido:** [`DEMO_GUION.md`](DEMO_GUION.md).
 
@@ -150,6 +150,9 @@ npm run test:integration    # suite completa contra codeint_test
 `test:integration` sobrescribe solo el entorno del proceso (`scripts/with-test-db.js`): tu `.env` no cambia y la base de desarrollo no se toca. Para otro comando contra la base de pruebas: `node scripts/with-test-db.js <comando>`. El superadministrador de pruebas (`admin@codeintcorp.com` / `codeint123`) se siembra con `scripts/seed-test-superadmin.js`, que se niega a correr sin `ALLOW_TEST_SUPERADMIN=1` o en una base cuyo nombre no contenga `test`.
 
 > No ejecutes `db:provision-app-role` para la base de pruebas: **rota la contraseña de `codeint_app` y reescribe `.env`**. `db:test-setup` aplica los mismos permisos sin hacerlo.
+
+## Integridad académica y calificación con IA
+Ver [`INTEGRIDAD_ACADEMICA.md`](INTEGRIDAD_ACADEMICA.md): qué se registra, qué no se bloquea y cómo se protege la nota contra la inyección de prompt.
 
 ## Despliegue y CI
 - **Despliegue de pruebas** (Render + Neon + Mailtrap): ver [DESPLIEGUE_PRUEBAS.md](DESPLIEGUE_PRUEBAS.md) y `render.yaml`.
