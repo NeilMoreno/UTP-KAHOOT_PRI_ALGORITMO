@@ -26,7 +26,7 @@ const getEjerciciosByMundo = async (req, res, next) => {
 
         // Validar existencia del mundo
         const mundoRes = await query(`
-            SELECT m.id_mundo, m.id_curso, m.orden, m.nombre, m.descripcion,
+            SELECT m.id_mundo, m.id_curso, m.orden, m.nombre, m.descripcion, m.leccion,
                    c.id_institucion, c.id_docente
             FROM mundo m
             JOIN curso c ON c.id_curso = m.id_curso
@@ -132,7 +132,8 @@ const getEjerciciosByMundo = async (req, res, next) => {
                     id_curso: mundo.id_curso,
                     orden: mundo.orden,
                     nombre: mundo.nombre,
-                    descripcion: mundo.descripcion
+                    descripcion: mundo.descripcion,
+                    leccion: mundo.leccion
                 },
                 total: result.rowCount,
                 data: result.rows
@@ -156,7 +157,8 @@ const getEjerciciosByMundo = async (req, res, next) => {
                     id_curso: mundo.id_curso,
                     orden: mundo.orden,
                     nombre: mundo.nombre,
-                    descripcion: mundo.descripcion
+                    descripcion: mundo.descripcion,
+                    leccion: mundo.leccion
                 },
                 total: result.rowCount,
                 data: result.rows

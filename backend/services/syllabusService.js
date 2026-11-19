@@ -76,6 +76,34 @@ const validateQuestion = (value, unitLabel) => {
     };
 };
 
+// ---- Mini-lección de cada unidad: de 3 a 5 tarjetas de teoría y una pregunta de comprobación ----
+const LESSON_LIMITS = Object.freeze({ MIN_CARDS: 3, MAX_CARDS: 5 });
+
+const validateLesson = (value, unitLabel) => {
+    const cards = Array.isArray(value?.tarjetas) ? value.tarjetas : null;
+    if (!cards || cards.length < LESSON_LIMITS.MIN_CARDS || cards.length > LESSON_LIMITS.MAX_CARDS) {
+        throw new DraftValidationError(`${unitLabel}: la lección debe tener entre ${LESSON_LIMITS.MIN_CARDS} y ${LESSON_LIMITS.MAX_CARDS} tarjetas.`);
+    }
+    const check = value.comprobacion;
+    const options = Array.isArray(check?.opciones) ? check.opciones : null;
+    if (!options || options.length !== 4) throw new DraftValidationError(`${unitLabel}: la pregunta de la lección necesita 4 opciones.`);
+    if (!Number.isInteger(check.correcta) || check.correcta < 0 || check.correcta > 3) {
+        throw new DraftValidationError(`${unitLabel}: indica cuál es la opción correcta de la lección.`);
+    }
+    return {
+        tarjetas: cards.map((card) => ({
+            titulo: cleanText(card?.titulo, 'título de la tarjeta', { min: 3, max: 80 }),
+            contenido: cleanText(card?.contenido, 'contenido de la tarjeta', { min: 20, max: 700, multiline: true }),
+            ejemplo: cleanText(card?.ejemplo ?? '', 'ejemplo de la tarjeta', { min: 0, max: 600, multiline: true })
+        })),
+        comprobacion: {
+            pregunta: cleanText(check.pregunta, 'pregunta de la lección', { min: 10, max: 200 }),
+            opciones: options.map((option) => cleanText(option, 'opción de la lección', { min: 1, max: 100 })),
+            correcta: check.correcta
+        }
+    };
+};
+
 // Valida y normaliza el contenido del borrador. Lanza DraftValidationError ante cualquier desvío.
 const validateDraftContent = (value) => {
     const units = Array.isArray(value?.unidades) ? value.unidades : null;
@@ -100,7 +128,9 @@ const validateDraftContent = (value) => {
                 descripcion: cleanText(unit.descripcion ?? '', 'descripción de la unidad', { min: 0, max: 600, multiline: true }),
                 semanas: cleanText(unit.semanas ?? '', 'semanas', { min: 0, max: 40 }),
                 ejercicios: LEVELS.map((level) => cleanExercises.find((exercise) => exercise.nivel === level)),
-                preguntas_sala: questions.map((question) => validateQuestion(question, label))
+                preguntas_sala: questions.map((question) => validateQuestion(question, label)),
+                // La lección es opcional (la IA la genera aparte o el docente la escribe).
+                ...(unit.leccion ? { leccion: validateLesson(unit.leccion, label) } : {})
             };
         })
     };
@@ -343,7 +373,9 @@ module.exports = {
     XP_BY_LEVEL,
     LIMITS,
     SYLLABUS_SCHEMA,
+    LESSON_LIMITS,
     DraftValidationError,
+    validateLesson,
     buildSyllabusPrompt,
     generateCourseDraft,
     validateDraftContent

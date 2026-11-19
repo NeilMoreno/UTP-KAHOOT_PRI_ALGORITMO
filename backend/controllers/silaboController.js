@@ -7,6 +7,7 @@ const { query, getClient } = require('../config/database');
 const { getAuthorizedCourse } = require('../services/authorizationService');
 const { getLanguage } = require('../config/languages');
 const { generateCourseDraft, validateDraftContent, XP_BY_LEVEL, DraftValidationError } = require('../services/syllabusService');
+const { generateLessons } = require('../services/lessonService');
 const { recordSecurityEvent, getRequestIp } = require('../services/securityAuditService');
 const { httpError } = require('../utils/httpError');
 const { isUuid } = require('../utils/validation');
@@ -253,9 +254,10 @@ const publicarBorrador = async (req, res, next) => {
         let exercises = 0;
         for (const unit of content.unidades) {
             const world = await client.query(
-                `INSERT INTO mundo (id_curso, id_silabo, orden, nombre, descripcion, tipo_origen)
-                 VALUES ($1, $2, $3, $4, $5, 'personalizado') RETURNING id_mundo;`,
-                [req.params.id_curso, draft.id_silabo, startOrder + unit.orden, unit.nombre, unit.descripcion || null]
+                `INSERT INTO mundo (id_curso, id_silabo, orden, nombre, descripcion, tipo_origen, leccion)
+                 VALUES ($1, $2, $3, $4, $5, 'personalizado', $6::jsonb) RETURNING id_mundo;`,
+                [req.params.id_curso, draft.id_silabo, startOrder + unit.orden, unit.nombre, unit.descripcion || null,
+                    unit.leccion ? JSON.stringify(unit.leccion) : null]
             );
             for (const question of unit.preguntas_sala) {
                 await client.query(
@@ -308,4 +310,64 @@ const publicarBorrador = async (req, res, next) => {
     }
 };
 
-module.exports = { getEstado, subirSilabo, generarBorrador, getBorrador, actualizarBorrador, publicarBorrador, publicSilabo };
+/**
+ * Genera con IA la mini-lección de cada unidad del borrador (solo texto: barata y repetible).
+ * POST /api/cursos/:id_curso/silabo/borrador/lecciones
+ */
+const generarLecciones = async (req, res, next) => {
+    let operationId = null;
+    let reserved = false;
+    try {
+        const course = await getAuthorizedCourse(req.params.id_curso, req.user, { write: true });
+        const current = await getLatestDraft(req.params.id_curso);
+        if (!current || !['generado', 'editado'].includes(current.estado)) {
+            throw httpError(409, 'No hay un borrador editable. Genera uno primero.', 'DRAFT_NOT_EDITABLE');
+        }
+        const content = validateDraftContent(current.contenido);
+
+        operationId = crypto.randomUUID();
+        try {
+            await query(
+                `SELECT * FROM reservar_uso_ia($1, $2, 'generacion_mundo', $3, NULL, $4);`,
+                [course.id_docente, operationId, positiveInt(process.env.GEMINI_LESSON_TOKEN_RESERVATION, 30000), current.id_silabo]
+            );
+            reserved = true;
+        } catch (error) {
+            if (error.code === '23514') {
+                throw httpError(409, 'El docente no dispone de una cuota de IA vigente o suficiente.', 'AI_QUOTA_UNAVAILABLE');
+            }
+            throw error;
+        }
+
+        const courseRow = await query('SELECT nombre, lenguaje FROM curso WHERE id_curso = $1;', [req.params.id_curso]);
+        const result = await generateLessons({
+            units: content.unidades, courseName: courseRow.rows[0]?.nombre, language: getLanguage(courseRow.rows[0]?.lenguaje)
+        });
+        const merged = validateDraftContent({
+            unidades: content.unidades.map((unit, index) => ({ ...unit, leccion: result.lessons[index] }))
+        });
+
+        const client = await getClient();
+        try {
+            await client.query('BEGIN');
+            await client.query('SELECT * FROM confirmar_uso_ia($1, $2, true);', [operationId, result.usage.total_tokens]);
+            reserved = false;
+            await client.query(
+                `UPDATE borrador_curso SET contenido = $1::jsonb, estado = 'editado', fecha_actualizacion = now() WHERE id_borrador = $2;`,
+                [JSON.stringify(merged), current.id_borrador]
+            );
+            await client.query('COMMIT');
+        } catch (error) {
+            await client.query('ROLLBACK').catch(() => {});
+            throw error;
+        } finally {
+            client.release();
+        }
+        res.json({ success: true, message: 'Lecciones generadas. Revísalas y edítalas antes de publicar.', contenido: merged, uso_tokens: result.usage });
+    } catch (error) {
+        if (reserved) await query('SELECT * FROM confirmar_uso_ia($1, 0, false);', [operationId]).catch(() => {});
+        next(error instanceof DraftValidationError ? httpError(400, error.message, 'INVALID_DRAFT') : error);
+    }
+};
+
+module.exports = { getEstado, subirSilabo, generarBorrador, getBorrador, actualizarBorrador, publicarBorrador, generarLecciones, publicSilabo };

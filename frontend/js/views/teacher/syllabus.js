@@ -76,6 +76,59 @@ const questionEditor = (question, unitIndex, questionIndex) => {
         }));
 };
 
+// Mini-lección de la unidad (teoría breve antes de los ejercicios): de 3 a 5 tarjetas y una pregunta de comprobación.
+const MIN_CARDS = 3;
+const MAX_CARDS = 5;
+const blankLesson = () => ({
+    tarjetas: [1, 2, 3].map(() => ({ titulo: '', contenido: '', ejemplo: '' })),
+    comprobacion: { pregunta: '', opciones: ['', '', '', ''], correcta: 0 }
+});
+
+const lessonEditor = (unit, unitIndex, redraw) => {
+    const box = h('details', { class: 'syl-exercise' });
+    const draw = () => {
+        const lesson = unit.leccion;
+        if (!lesson) {
+            box.replaceChildren(
+                h('summary', {}, 'Lección de teoría (sin lección)'),
+                h('p', { class: 'small muted' }, 'Una lección corta ayuda al estudiante a entender el tema antes de los ejercicios. Puedes escribirla o pedirle a la IA que genere las de todas las unidades.'),
+                h('button', { class: 'btn secondary small', type: 'button', onClick: () => { unit.leccion = blankLesson(); box.open = true; draw(); } }, '+ Escribir una lección'));
+            return;
+        }
+        const group = `leccion-correcta-${unitIndex}`;
+        box.replaceChildren(
+            h('summary', {}, `Lección de teoría (${lesson.tarjetas.length} tarjetas)`),
+            lesson.tarjetas.map((card, index) => h('div', { class: 'syl-question' },
+                h('strong', {}, `Tarjeta ${index + 1}`),
+                field('Título', bound(card, 'titulo', { max: 80 })),
+                field('Explicación', bound(card, 'contenido', { multiline: true, rows: 3, max: 700 })),
+                field('Ejemplo de código (opcional)', bound(card, 'ejemplo', { multiline: true, rows: 3, max: 600 })),
+                h('button', {
+                    class: 'btn ghost small', type: 'button', disabled: lesson.tarjetas.length <= MIN_CARDS,
+                    onClick: () => { lesson.tarjetas.splice(index, 1); draw(); box.open = true; }
+                }, 'Quitar tarjeta'))),
+            h('button', {
+                class: 'btn ghost small', type: 'button', disabled: lesson.tarjetas.length >= MAX_CARDS,
+                onClick: () => { lesson.tarjetas.push({ titulo: '', contenido: '', ejemplo: '' }); draw(); box.open = true; }
+            }, '+ Añadir tarjeta'),
+            h('div', { class: 'syl-question' },
+                h('strong', {}, 'Pregunta de comprobación'),
+                bound(lesson.comprobacion, 'pregunta', { max: 200, placeholder: 'Pregunta' }),
+                lesson.comprobacion.opciones.map((_, i) => {
+                    const radio = h('input', { type: 'radio', name: group, 'aria-label': `Marcar la opción ${i + 1} como correcta` });
+                    radio.checked = lesson.comprobacion.correcta === i;
+                    radio.addEventListener('change', () => { lesson.comprobacion.correcta = i; });
+                    const text = h('input', { class: 'input', type: 'text', maxlength: 100, placeholder: `Opción ${i + 1}` });
+                    text.value = lesson.comprobacion.opciones[i];
+                    text.addEventListener('input', () => { lesson.comprobacion.opciones[i] = text.value; });
+                    return h('label', { class: 'syl-option' }, radio, text);
+                })),
+            h('button', { class: 'btn ghost small', type: 'button', onClick: () => { delete unit.leccion; draw(); box.open = true; } }, 'Quitar la lección'));
+    };
+    draw();
+    return box;
+};
+
 export default async function syllabusView({ root, params }) {
     document.title = 'Sílabo con IA · codeInt';
     const courseId = params.id;
@@ -208,11 +261,27 @@ export default async function syllabusView({ root, params }) {
             h('details', { class: 'syl-exercise' },
                 h('summary', {}, `Preguntas para sala en vivo (${unit.preguntas_sala.length})`),
                 h('p', { class: 'small muted' }, 'Marca con el círculo la opción correcta. Se usarán en el siguiente paso, el banco de preguntas.'),
-                unit.preguntas_sala.map((question, qIndex) => questionEditor(question, index, qIndex)))));
+                unit.preguntas_sala.map((question, qIndex) => questionEditor(question, index, qIndex))),
+            lessonEditor(unit, index)));
+        const lessonsButton = h('button', { class: 'btn secondary', type: 'button' }, icon('sparkles', 15), 'Generar lecciones con IA');
+        lessonsButton.addEventListener('click', async () => {
+            setBusy(lessonsButton, true, 'La IA está escribiendo…');
+            try {
+                // Primero se guardan los cambios actuales: la IA trabaja sobre el borrador guardado.
+                await api(`/cursos/${courseId}/silabo/borrador`, { method: 'PUT', body: { contenido: content } });
+                const response = await api(`/cursos/${courseId}/silabo/borrador/lecciones`, { method: 'POST' });
+                content = response.contenido;
+                toast(response.message, 'success');
+                render();
+            } catch (error) {
+                toast(errorMessage(error), 'error');
+                setBusy(lessonsButton, false);
+            }
+        });
         return h('section', { class: 'syl-draft' },
             h('div', { class: 'section-heading' },
                 h('h2', {}, `3. Revisa el borrador (${content.unidades.length} unidades)`),
-                h('div', { class: 'row' }, save,
+                h('div', { class: 'row' }, lessonsButton, save,
                     h('button', { class: 'btn', type: 'button', onClick: confirmPublish }, icon('check', 15), 'Publicar curso'))),
             units,
             h('button', {

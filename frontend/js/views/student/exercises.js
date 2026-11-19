@@ -1,5 +1,6 @@
 import { h, icon } from '../../ui.js';
 import { api, ApiError } from '../../api.js';
+import { lessonCard } from './lesson.js';
 
 const exerciseRow = (exercise) => {
     const passed = exercise.aprobado === true;
@@ -15,7 +16,7 @@ const exerciseRow = (exercise) => {
             h('span', { class: 'chip xp' }, icon('bolt', 13), `${exercise.xp_recompensa} XP`)));
 };
 
-export default async function exercisesView({ root, params }) {
+export default async function exercisesView({ root, params, user }) {
     document.title = 'Ejercicios · codeInt';
     let response;
     try {
@@ -41,6 +42,7 @@ export default async function exercisesView({ root, params }) {
             h('a', { href: '#/' }, 'Inicio'), ' / ', h('a', { href: backTo }, 'Mapa'), ' / ', `Mundo ${mundo.orden}`),
         h('div', { class: 'page-head' },
             h('div', {}, h('h1', {}, `Mundo ${mundo.orden}: ${mundo.nombre}`), h('p', {}, mundo.descripcion))),
+        lessonCard({ lesson: mundo.leccion, userId: user.id_usuario, worldId: mundo.id_mundo }),
         h('p', { class: 'small muted' }, `${passed} de ${exercises.length} ejercicios aprobados`),
         exercises.length === 0
             ? h('div', { class: 'card empty' }, 'Este mundo todavía no tiene ejercicios.')

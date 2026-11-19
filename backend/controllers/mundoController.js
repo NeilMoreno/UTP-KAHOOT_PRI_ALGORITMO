@@ -199,7 +199,7 @@ const getMundoById = async (req, res, next) => {
         await getAuthorizedWorld(id_mundo, req.user);
 
         const sql = `
-            SELECT m.id_mundo, m.id_curso, m.orden, m.nombre, m.descripcion, m.tipo_origen,
+            SELECT m.id_mundo, m.id_curso, m.orden, m.nombre, m.descripcion, m.tipo_origen, m.leccion,
                    c.nombre AS curso_nombre, c.codigo_curso, c.lenguaje,
                    (SELECT count(*) FROM ejercicio e WHERE e.id_mundo = m.id_mundo)::INTEGER AS total_ejercicios
             FROM mundo m

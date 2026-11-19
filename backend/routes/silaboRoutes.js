@@ -36,6 +36,7 @@ router.post('/', ...teacherOnly, uploadLimiter, receivePdf, silaboController.sub
 router.get('/borrador', ...teacherOnly, silaboController.getBorrador);
 router.put('/borrador', ...teacherOnly, silaboController.actualizarBorrador);
 router.post('/borrador/publicar', ...teacherOnly, silaboController.publicarBorrador);
+router.post('/borrador/lecciones', ...teacherOnly, aiGenerationLimiter, silaboController.generarLecciones);
 router.post('/:id_silabo/generar', ...teacherOnly, aiGenerationLimiter, silaboController.generarBorrador);
 
 module.exports = router;
