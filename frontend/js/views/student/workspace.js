@@ -1,4 +1,4 @@
-import { h, icon, toast, setBusy, errorMessage, formatDate } from '../../ui.js';
+import { h, icon, toast, setBusy, errorMessage, formatDate, openModal } from '../../ui.js';
 import { api, request, ApiError } from '../../api.js';
 import { refreshUser } from '../../state.js';
 import { createCodeEditor } from '../../code-editor.js';
@@ -69,6 +69,30 @@ export default async function workspaceView({ root, params, user }) {
     const submitButton = aiGraded
         ? h('button', { class: 'btn ai', type: 'button' }, icon('sparkles', 16), 'Enviar a la IA')
         : h('button', { class: 'btn', type: 'button' }, icon('check', 16), 'Comprobar');
+    // Pistas graduales de IA (hasta 3, tras al menos un intento). Cuestan tokens de la cuota del docente.
+    const hintButton = aiGraded ? h('button', { class: 'btn ghost', type: 'button', title: 'Hasta 3 pistas por ejercicio, sin darte la solución' }, icon('sparkles', 16), 'Pedir pista') : null;
+    const showHints = async () => {
+        const { data } = await api(`/ejercicios/${id}/pistas`);
+        if (data.pistas.length === 0) return;
+        openModal(h('div', {},
+            h('div', { class: 'modal-head' }, h('h2', {}, 'Tus pistas')),
+            h('ol', { class: 'tips' }, data.pistas.map((item) => h('li', {}, h('strong', {}, `Pista ${item.nivel}: `), item.contenido))),
+            h('p', { class: 'small muted' }, data.restantes > 0 ? `Te quedan ${data.restantes} pista(s) para este ejercicio.` : 'Ya usaste todas las pistas de este ejercicio.')),
+        { label: 'Pistas del ejercicio' });
+    };
+    if (hintButton) {
+        hintButton.addEventListener('click', async () => {
+            setBusy(hintButton, true, 'Pensando…');
+            try {
+                await api(`/ejercicios/${id}/pistas`, { method: 'POST' });
+            } catch (error) {
+                toast(errorMessage(error), 'error');
+            } finally {
+                setBusy(hintButton, false);
+            }
+            await showHints().catch(() => {});
+        });
+    }
     const resetButton = h('button', { class: 'btn ghost small', type: 'button' }, tipo === 'corregir' ? 'Restaurar código original' : 'Restaurar plantilla');
 
     const setBusyState = (value) => {
@@ -283,7 +307,7 @@ export default async function workspaceView({ root, params, user }) {
                         editor.element,
                         h('div', { class: 'editor-bar', style: { borderTop: '1px solid var(--border)', borderBottom: 0 } },
                             h('span', { id: 'editor-help', class: 'hint' }, 'Tab inserta sangría · Esc y luego Tab sale del editor. Al enviar se registra si pegaste texto o saliste de la pestaña, para que tu docente pueda revisar.'),
-                            h('div', { class: 'row' }, validateButton, submitButton))),
+                            h('div', { class: 'row' }, hintButton, validateButton, submitButton))),
                 problems))));
 
     return () => {

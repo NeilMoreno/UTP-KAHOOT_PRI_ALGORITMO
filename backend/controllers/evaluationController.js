@@ -582,5 +582,7 @@ const answerDefense = async (req, res, next) => {
 module.exports = {
     validateCode,
     submitAndEvaluate,
-    answerDefense
+    answerDefense,
+    getExerciseContext,
+    getActiveEnrollment
 };

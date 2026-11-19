@@ -6,6 +6,7 @@
 const express = require('express');
 const router = express.Router();
 const ejercicioController = require('../controllers/ejercicioController');
+const pistaController = require('../controllers/pistaController');
 const evaluationController = require('../controllers/evaluationController');
 const { authenticateJWT } = require('../middleware/authMiddleware');
 const { authorizeRoles } = require('../middleware/roleMiddleware');
@@ -32,6 +33,10 @@ router.post('/:id_ejercicio/envios',
     aiEvaluationLimiter,
     evaluationController.submitAndEvaluate
 );
+
+// Pistas graduales de IA (3 por ejercicio, tras un primer intento)
+router.get('/:id_ejercicio/pistas', authenticateJWT, authorizeRoles('estudiante'), pistaController.getHints);
+router.post('/:id_ejercicio/pistas', authenticateJWT, authorizeRoles('estudiante'), aiEvaluationLimiter, pistaController.requestHint);
 
 // Defensa del código: el estudiante responde una pregunta sobre su propio envío aprobado
 router.post('/:id_ejercicio/envios/:id_envio/defensa',
