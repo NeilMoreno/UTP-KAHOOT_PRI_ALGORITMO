@@ -140,8 +140,7 @@ const result = (puntaje, aciertos, total, feedback) => ({
 // Corrige un envío. `answer` es el texto guardado (ver readAnswer) o el código en "corregir".
 const gradeLocal = ({ tipo, solucion, answer, language = 'pseint' }) => {
     if (tipo === 'predecir') {
-        // Se comparan sin espacios ni saltos de línea: "0 1", "0
-1" y "01" son la misma salida.
+        // Se comparan sin espacios ni saltos de línea: "0 1", "0" + salto + "1" y "01" son la misma salida.
         const flatten = (value) => normalizeAnswer(value).replace(/\s+/g, '');
         const given = flatten(answer);
         const accepted = [solucion.respuesta, ...(solucion.alternativas || [])].map(flatten);
