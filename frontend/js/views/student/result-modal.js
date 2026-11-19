@@ -1,4 +1,5 @@
-import { h, icon, openModal, formatNumber } from '../../ui.js';
+import { h, icon, openModal, formatNumber, toast, errorMessage } from '../../ui.js';
+import { api } from '../../api.js';
 
 export const CATEGORY_LABEL = {
     ninguno: 'Sin errores',
@@ -78,6 +79,33 @@ export function showEvaluationResult(data, { onUseCode } = {}) {
     }
     if (data.eficiencia_algoritmica) {
         content.push(h('p', { class: 'small muted', style: { marginTop: '12px' } }, h('strong', {}, 'Eficiencia: '), data.eficiencia_algoritmica));
+    }
+
+    // Defensa del código: una pregunta sobre su propio envío aprobado. Opcional, un solo intento, sin nota ni XP.
+    if (data.defensa_pendiente && passed) {
+        const feedback = h('div', { 'aria-live': 'polite' });
+        const buttons = data.defensa_pendiente.opciones.map((option, index) => h('button', {
+            class: 'btn ghost lesson-option', type: 'button',
+            onClick: async () => {
+                buttons.forEach((button) => { button.disabled = true; });
+                try {
+                    const { data: result } = await api(`/ejercicios/${data.id_ejercicio}/envios/${data.id_envio_ejercicio}/defensa`, { method: 'POST', body: { respuesta: index } });
+                    buttons[result.respuesta_correcta].classList.add('is-right');
+                    if (!result.correcta) buttons[index].classList.add('is-wrong');
+                    feedback.replaceChildren(h('div', { class: `alert ${result.correcta ? 'success' : 'warn'}`, role: 'status' },
+                        result.correcta ? '¡Bien defendido! Se nota que entiendes tu código.' : 'Esa no era. Repasa cómo funciona tu código: la respuesta correcta quedó marcada.'));
+                } catch (error) {
+                    buttons.forEach((button) => { button.disabled = false; });
+                    toast(errorMessage(error), 'error');
+                }
+            }
+        }, option));
+        content.push(h('section', { class: 'defense-box', 'aria-label': 'Defiende tu código' },
+            h('h3', {}, icon('shield', 16), ' Defiende tu código'),
+            h('p', { class: 'small muted' }, 'Una pregunta rápida sobre lo que acabas de escribir. No cambia tu nota.'),
+            h('p', {}, h('strong', {}, data.defensa_pendiente.pregunta)),
+            h('div', { class: 'stack' }, buttons),
+            feedback));
     }
 
     const closeRef = {};

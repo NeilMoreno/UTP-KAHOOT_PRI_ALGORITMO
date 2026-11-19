@@ -33,6 +33,13 @@ router.post('/:id_ejercicio/envios',
     evaluationController.submitAndEvaluate
 );
 
+// Defensa del código: el estudiante responde una pregunta sobre su propio envío aprobado
+router.post('/:id_ejercicio/envios/:id_envio/defensa',
+    authenticateJWT,
+    authorizeRoles('estudiante'),
+    evaluationController.answerDefense
+);
+
 // Creación de ejercicio nuevo (Docentes y Administradores)
 router.post('/', authenticateJWT, authorizeRoles('docente', 'superadministrador'), ejercicioController.createEjercicio);
 

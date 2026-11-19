@@ -354,6 +354,7 @@ const getIntegrityReport = async (req, res, next) => {
                    u.id_usuario AS id_estudiante, concat_ws(' ', u.nombre, u.apellido) AS estudiante,
                    e.id_ejercicio, e.titulo AS ejercicio, m.orden AS mundo_orden,
                    ev.puntaje, ev.puntaje_modelo, COALESCE(ev.alerta_manipulacion, false) AS alerta_manipulacion,
+                   ev.defensa_correcta,
                    su.id_estudiante AS id_similar,
                    concat_ws(' ', us.nombre, us.apellido) AS estudiante_similar
               FROM envio_ejercicio ee
@@ -361,7 +362,7 @@ const getIntegrityReport = async (req, res, next) => {
               JOIN ejercicio e ON e.id_ejercicio = ee.id_ejercicio
               JOIN mundo m ON m.id_mundo = e.id_mundo
               LEFT JOIN LATERAL (
-                   SELECT puntaje, puntaje_modelo, alerta_manipulacion
+                   SELECT puntaje, puntaje_modelo, alerta_manipulacion, defensa_correcta
                      FROM evaluacion_ia WHERE id_envio_ejercicio = ee.id_envio_ejercicio
                     ORDER BY fecha_evaluacion DESC LIMIT 1) ev ON true
               LEFT JOIN envio_ejercicio su ON su.id_envio_ejercicio = ee.id_envio_similar

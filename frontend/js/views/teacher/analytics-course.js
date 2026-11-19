@@ -212,6 +212,7 @@ export default async function analyticsCourseView({ root, params, user }) {
         ENVIO_MUY_RAPIDO: 'Envío muy rápido',
         SALIO_DE_LA_PESTANA: 'Salió de la pestaña varias veces',
         COPIO_EL_ENUNCIADO: 'Copió el enunciado',
+        DEFENSA_FALLIDA: 'Falló la pregunta sobre su propio código',
         SIMILITUD_ALTA: 'Código muy parecido al de otro estudiante',
         SIMILITUD_MUY_ALTA: 'Código casi idéntico al de otro estudiante',
         INTENTO_DE_MANIPULACION: 'Texto dirigido a la IA para subir la nota'
@@ -261,6 +262,7 @@ export default async function analyticsCourseView({ root, params, user }) {
                             item.alerta_manipulacion && item.puntaje_modelo !== null ? ` (la IA habría puesto ${item.puntaje_modelo})` : '')),
                     h('span', { class: `chip risk-chip ${item.riesgo}` }, item.riesgo === 'rojo' ? 'Rojo' : 'Ámbar')),
                 h('ul', { class: 'integrity-reasons' }, item.motivos_riesgo.map((reason) => h('li', {}, REASON_LABEL[reason] || reason))),
+                item.defensa_correcta === true ? h('p', { class: 'small' }, 'Defensa del código: respondió bien.') : null,
                 item.estudiante_similar ? h('p', { class: 'small' }, `Parecido ${Math.round(Number(item.similitud) * 100)} % con el código de ${item.estudiante_similar}.`) : null,
                 h('p', { class: 'small muted' },
                     `Pegó ${signals.pegados || 0} vez/veces (${signals.chars_pegados || 0} caracteres) · salió ${signals.cambios_foco || 0} vez/veces (${signals.segundos_fuera || 0} s) · `,

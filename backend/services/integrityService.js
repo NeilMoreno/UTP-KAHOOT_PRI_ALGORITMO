@@ -103,7 +103,7 @@ const THRESHOLDS = Object.freeze({
     similarityRed: 0.95
 });
 
-const assessRisk = ({ senales, codeLength, similitud = 0, manipulacion = false }) => {
+const assessRisk = ({ senales, codeLength, similitud = 0, manipulacion = false, defensaFallida = false }) => {
     const reasons = [];
     let points = 0;
     const add = (reason, weight) => { reasons.push(reason); points += weight; };
@@ -118,6 +118,8 @@ const assessRisk = ({ senales, codeLength, similitud = 0, manipulacion = false }
     if (similitud >= THRESHOLDS.similarityRed) add('SIMILITUD_MUY_ALTA', 3);
     else if (similitud >= THRESHOLDS.similarityAmber) add('SIMILITUD_ALTA', 2);
     if (manipulacion) add('INTENTO_DE_MANIPULACION', 3);
+    // Fallar la pregunta sobre el propio código pesa poco por sí sola: suma a otras señales.
+    if (defensaFallida) add('DEFENSA_FALLIDA', 1);
 
     const riesgo = points >= 3 ? 'rojo' : (points >= 2 ? 'ambar' : 'verde');
     return { riesgo, motivos: reasons };

@@ -102,6 +102,7 @@ const getSubmission = async (idSubmission, db = { query }) => {
                ev.id_evaluacion, ev.puntaje, ev.retroalimentacion,
                ev.categoria_error, ev.sugerencias, ev.eficiencia_algoritmica,
                ev.codigo_sugerido_mejora, ev.modelo_ia, ev.fecha_evaluacion,
+               ev.defensa, ev.defensa_en, ev.defensa_correcta,
                COALESCE(xm.cantidad, 0)::integer AS xp_ganada
           FROM envio_ejercicio ee
           LEFT JOIN evaluacion_ia ev ON ev.id_envio_ejercicio = ee.id_envio_ejercicio
@@ -109,7 +110,13 @@ const getSubmission = async (idSubmission, db = { query }) => {
          WHERE ee.id_envio_ejercicio = $1
          LIMIT 1;
     `, [idSubmission]);
-    return result.rows[0] || null;
+    const row = result.rows[0] || null;
+    if (row) {
+        // La pregunta pendiente sale SIN la respuesta correcta.
+        row.defensa_pendiente = row.defensa && !row.defensa_en ? { pregunta: row.defensa.pregunta, opciones: row.defensa.opciones } : null;
+        delete row.defensa;
+    }
+    return row;
 };
 
 const respondExistingSubmission = async (res, submission) => {
@@ -326,8 +333,8 @@ const submitAndEvaluate = async (req, res, next) => {
                     retroalimentacion, categoria_error, sugerencias,
                     eficiencia_algoritmica, codigo_sugerido_mejora,
                     modelo_ia, id_respuesta_proveedor,
-                    alerta_manipulacion, motivos_alerta, puntaje_modelo
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10, $11, $12, $13::jsonb, $14)
+                    alerta_manipulacion, motivos_alerta, puntaje_modelo, defensa
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10, $11, $12, $13::jsonb, $14, $15::jsonb)
                 RETURNING id_evaluacion;
             `, [
                 submissionId,
@@ -343,7 +350,9 @@ const submitAndEvaluate = async (req, res, next) => {
                 geminiResult.response_id,
                 integrity.manipulacion,
                 JSON.stringify(integrity.motivos),
-                integrity.puntaje_modelo
+                integrity.puntaje_modelo,
+                // La defensa solo se propone si aprobó y no hubo alerta de manipulación.
+                evaluation.pregunta_defensa && evaluation.puntaje >= 70 && !integrity.manipulacion ? JSON.stringify(evaluation.pregunta_defensa) : null
             ]);
             const evaluationId = insertedEvaluation.rows[0].id_evaluacion;
 
@@ -486,7 +495,66 @@ const submitAndEvaluate = async (req, res, next) => {
     }
 };
 
+/**
+ * El estudiante responde la pregunta de defensa de su envío aprobado.
+ * POST /api/ejercicios/:id_ejercicio/envios/:id_envio/defensa   { respuesta: 0..3 }
+ * Se corrige aquí (la respuesta correcta nunca viaja antes). Una respuesta incorrecta suma una señal de
+ * integridad para el docente; no cambia la nota ni da XP.
+ */
+const answerDefense = async (req, res, next) => {
+    try {
+        const { id_ejercicio: idEjercicio, id_envio: idEnvio } = req.params;
+        if (!isUuid(idEnvio)) throw httpError(400, 'Identificador de envío no válido.', 'INVALID_ID');
+        const answer = req.body?.respuesta;
+        if (!Number.isInteger(answer) || answer < 0 || answer > 3) {
+            throw httpError(400, 'Elige una de las cuatro opciones.', 'INVALID_ANSWER');
+        }
+        await getAuthorizedExercise(idEjercicio, req.user);
+
+        const found = await query(`
+            SELECT ee.id_envio_ejercicio, ee.codigo_pseint, ee.senales, ee.similitud,
+                   ev.id_evaluacion, ev.defensa, ev.defensa_en, ev.alerta_manipulacion
+              FROM envio_ejercicio ee
+              JOIN evaluacion_ia ev ON ev.id_envio_ejercicio = ee.id_envio_ejercicio
+             WHERE ee.id_envio_ejercicio = $1 AND ee.id_ejercicio = $2 AND ee.id_estudiante = $3
+             LIMIT 1;
+        `, [idEnvio, idEjercicio, req.user.id_usuario]);
+        if (found.rowCount === 0) throw httpError(404, 'Envío no encontrado.', 'NOT_FOUND');
+        const row = found.rows[0];
+        if (!row.defensa) throw httpError(409, 'Este envío no tiene pregunta de defensa.', 'DEFENSE_UNAVAILABLE');
+        if (row.defensa_en) throw httpError(409, 'Ya respondiste esta pregunta.', 'DEFENSE_DONE');
+
+        const correct = answer === row.defensa.correcta;
+        const saved = await query(`
+            UPDATE evaluacion_ia
+               SET defensa_respuesta = $2, defensa_correcta = $3, defensa_en = now()
+             WHERE id_evaluacion = $1 AND defensa_en IS NULL
+            RETURNING id_evaluacion;
+        `, [row.id_evaluacion, answer, correct]);
+        if (saved.rowCount === 0) throw httpError(409, 'Ya respondiste esta pregunta.', 'DEFENSE_DONE');
+
+        if (!correct) {
+            // Suma una señal de integridad: se recalcula el semáforo del envío con lo ya registrado.
+            const risk = assessRisk({
+                senales: row.senales, codeLength: row.codigo_pseint.length,
+                similitud: Number(row.similitud || 0), manipulacion: row.alerta_manipulacion, defensaFallida: true
+            });
+            await query(`
+                UPDATE envio_ejercicio
+                   SET riesgo = CASE WHEN $2 = 'rojo' OR riesgo = 'rojo' THEN 'rojo'
+                                     WHEN $2 = 'ambar' OR riesgo = 'ambar' THEN 'ambar' ELSE 'verde' END,
+                       motivos_riesgo = $3::jsonb
+                 WHERE id_envio_ejercicio = $1;
+            `, [idEnvio, risk.riesgo, JSON.stringify(risk.motivos)]);
+        }
+        return res.json({ success: true, data: { correcta: correct, respuesta_correcta: row.defensa.correcta } });
+    } catch (error) {
+        return next(error);
+    }
+};
+
 module.exports = {
     validateCode,
-    submitAndEvaluate
+    submitAndEvaluate,
+    answerDefense
 };
