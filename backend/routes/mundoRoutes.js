@@ -8,7 +8,7 @@ const router = express.Router();
 const mundoController = require('../controllers/mundoController');
 const { authenticateJWT } = require('../middleware/authMiddleware');
 
-// Listado de los 7 mundos con estado de desbloqueo dinámico para el curso
+// Listado de los mundos con estado de desbloqueo dinámico para el curso
 router.get('/curso/:id_curso', authenticateJWT, mundoController.getMundosByCurso);
 
 // Siguiente ejercicio pendiente del estudiante en el curso

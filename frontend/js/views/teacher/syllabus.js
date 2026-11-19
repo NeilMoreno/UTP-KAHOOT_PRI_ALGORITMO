@@ -5,6 +5,8 @@ import { navigate } from '../../router.js';
 const LEVEL_LABEL = { basico: 'Básico', intermedio: 'Intermedio', reto: 'Reto' };
 const STATE_LABEL = { cargado: 'Cargado', procesando: 'Procesando…', procesado: 'Procesado', error: 'Con error' };
 const MIN_UNITS = 3;
+const MAX_UNITS = 10;
+const MAX_RUBRIC_ITEMS = 5;
 
 const field = (label, control, hint) => h('div', { class: 'field' }, h('label', {}, label), control, hint ? h('span', { class: 'hint' }, hint) : null);
 
@@ -23,11 +25,44 @@ const exerciseEditor = (exercise) => h('details', { class: 'syl-exercise' },
     field('Título', bound(exercise, 'titulo', { max: 200 })),
     field('Enunciado', bound(exercise, 'enunciado', { multiline: true, rows: 5, max: 4000 })),
     field('Plantilla de código inicial (opcional)', bound(exercise, 'plantilla', { multiline: true, rows: 3, max: 2000 })),
-    h('div', { class: 'syl-rubric' }, h('strong', {}, 'Rúbrica con la que la IA corregirá'),
-        exercise.rubrica.map((item) => h('div', { class: 'syl-rubric-row' },
-            bound(item, 'criterio', { max: 120, placeholder: 'Criterio' }),
-            bound(item, 'descripcion', { max: 400, placeholder: 'Qué se espera' })))),
+    rubricEditor(exercise),
     exercise.fuente ? h('p', { class: 'small muted' }, icon('shield', 13), ` Fuente en el sílabo: ${exercise.fuente}`) : null);
+
+// Rúbrica editable: de 1 a 5 criterios que la IA usará al corregir.
+const rubricEditor = (exercise) => {
+    const box = h('div', { class: 'syl-rubric' });
+    const draw = () => {
+        box.replaceChildren(
+            h('strong', {}, 'Rúbrica con la que la IA corregirá'),
+            exercise.rubrica.map((item, index) => h('div', { class: 'syl-rubric-row' },
+                bound(item, 'criterio', { max: 120, placeholder: 'Criterio' }),
+                bound(item, 'descripcion', { max: 400, placeholder: 'Qué se espera' }),
+                h('button', {
+                    class: 'btn ghost small', type: 'button', disabled: exercise.rubrica.length <= 1,
+                    'aria-label': `Quitar el criterio ${index + 1}`,
+                    onClick: () => { exercise.rubrica.splice(index, 1); draw(); }
+                }, 'Quitar'))),
+            h('button', {
+                class: 'btn ghost small', type: 'button', disabled: exercise.rubrica.length >= MAX_RUBRIC_ITEMS,
+                onClick: () => { exercise.rubrica.push({ criterio: '', descripcion: '' }); draw(); }
+            }, '+ Añadir criterio'));
+    };
+    draw();
+    return box;
+};
+
+const blankUnit = (order) => {
+    const exercise = (nivel) => ({
+        nivel, titulo: '', enunciado: '', plantilla: '', fuente: '',
+        rubrica: [{ criterio: 'Corrección', descripcion: '' }, { criterio: 'Casos borde', descripcion: '' }, { criterio: 'Claridad', descripcion: '' }]
+    });
+    const question = () => ({ enunciado: '', opciones: [0, 1, 2, 3].map((i) => ({ texto: '', es_correcta: i === 0 })) });
+    return {
+        orden: order, nombre: '', descripcion: '', semanas: '',
+        ejercicios: ['basico', 'intermedio', 'reto'].map(exercise),
+        preguntas_sala: [question(), question(), question()]
+    };
+};
 
 const questionEditor = (question, unitIndex, questionIndex) => {
     const group = `correcta-${unitIndex}-${questionIndex}`;
@@ -179,7 +214,12 @@ export default async function syllabusView({ root, params }) {
                 h('h2', {}, `3. Revisa el borrador (${content.unidades.length} unidades)`),
                 h('div', { class: 'row' }, save,
                     h('button', { class: 'btn', type: 'button', onClick: confirmPublish }, icon('check', 15), 'Publicar curso'))),
-            units);
+            units,
+            h('button', {
+                class: 'btn secondary', type: 'button', disabled: content.unidades.length >= MAX_UNITS,
+                onClick: () => { content.unidades.push(blankUnit(content.unidades.length + 1)); render(); }
+            }, '+ Añadir unidad manual'),
+            h('p', { class: 'small muted' }, 'Una unidad nueva necesita nombre, tres ejercicios (básico, intermedio y reto) y tres preguntas completas antes de guardar.'));
     };
 
     const render = () => {

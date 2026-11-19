@@ -53,7 +53,7 @@ export default async function teacherDashboard({ root, user }) {
 
             coursesHost.replaceChildren(...(courses.length
                 ? courses.slice(0, 6).map(courseCard)
-                : [emptyState('Todavía no tienes cursos', 'Crea tu primer curso para generar los siete mundos y comenzar a matricular estudiantes.')]));
+                : [emptyState('Todavía no tienes cursos', 'Crea tu primer curso y comienza a matricular estudiantes.')]));
         } catch (error) {
             statsHost.replaceChildren(h('div', { class: 'inline-error' }, errorMessage(error)));
             coursesHost.replaceChildren(h('div', { class: 'inline-error' }, errorMessage(error)));

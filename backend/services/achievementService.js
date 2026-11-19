@@ -16,15 +16,11 @@ const METRICS_SQL = `
            JOIN envio_ejercicio ee ON ee.id_envio_ejercicio = ev.id_envio_ejercicio
           WHERE ev.id_estudiante = $1
             AND ev.puntaje >= 70)::bigint AS ejercicios_aprobados,
-        (SELECT COALESCE(max(total), 0)
-           FROM (
-               SELECT count(*) AS total
-                 FROM progreso_mundo pm
-                 JOIN matricula ma ON ma.id_matricula = pm.id_matricula
-                WHERE ma.id_estudiante = $1
-                  AND pm.estado = 'completado'
-                GROUP BY pm.id_curso
-           ) por_curso)::bigint AS mundos_completados,
+        (SELECT count(*)
+           FROM progreso_mundo pm
+           JOIN matricula ma ON ma.id_matricula = pm.id_matricula
+          WHERE ma.id_estudiante = $1
+            AND pm.estado = 'completado')::bigint AS mundos_completados,
         (SELECT count(DISTINCT id_sala)
            FROM participante_sala
           WHERE id_estudiante = $1)::bigint AS partidas_participadas,

@@ -249,6 +249,7 @@ const publicarBorrador = async (req, res, next) => {
         } else {
             await client.query('DELETE FROM progreso_mundo WHERE id_curso = $1;', [req.params.id_curso]);
             await client.query('DELETE FROM ejercicio WHERE id_curso = $1;', [req.params.id_curso]);
+            await client.query("DELETE FROM banco_pregunta WHERE id_curso = $1 AND origen = 'ia';", [req.params.id_curso]);
             await client.query('DELETE FROM mundo WHERE id_curso = $1;', [req.params.id_curso]);
         }
 
@@ -259,6 +260,13 @@ const publicarBorrador = async (req, res, next) => {
                  VALUES ($1, $2, $3, $4, $5, 'personalizado') RETURNING id_mundo;`,
                 [req.params.id_curso, draft.id_silabo, startOrder + unit.orden, unit.nombre, unit.descripcion || null]
             );
+            for (const question of unit.preguntas_sala) {
+                await client.query(
+                    `INSERT INTO banco_pregunta (id_curso, id_mundo, enunciado, opciones, origen)
+                     VALUES ($1, $2, $3, $4::jsonb, 'ia');`,
+                    [req.params.id_curso, world.rows[0].id_mundo, question.enunciado, JSON.stringify(question.opciones)]
+                );
+            }
             let order = 1;
             for (const exercise of unit.ejercicios) {
                 await client.query(

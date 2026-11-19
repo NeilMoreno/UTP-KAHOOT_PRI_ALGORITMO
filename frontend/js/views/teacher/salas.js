@@ -100,6 +100,52 @@ const roomBuilderModal = ({ courses, onCreated }) => {
                 h('span', { class: 'hint' }, `${questions.length} de 50 preguntas`)));
     };
 
+    // Banco de preguntas del curso (nace del sílabo publicado): se copian a la sala, el docente las puede editar.
+    const bankHost = h('div', { class: 'stack' });
+    const bankButton = h('button', { class: 'btn secondary', type: 'button' }, icon('sparkles', 15), 'Importar del banco del curso');
+    const fromBank = (item) => {
+        const question = emptyQuestion();
+        question.enunciado = item.enunciado;
+        question.opciones = item.opciones.map((option) => option.texto);
+        question.correcta = Math.max(0, item.opciones.findIndex((option) => option.es_correcta));
+        return question;
+    };
+    bankButton.addEventListener('click', async () => {
+        if (!selectedCourse) { toast('Primero selecciona el curso.', 'info'); return; }
+        setBusy(bankButton, true, 'Cargando…');
+        try {
+            const { data } = await api(`/cursos/${selectedCourse}/banco`);
+            if (data.length === 0) {
+                bankHost.replaceChildren(h('p', { class: 'muted small' }, 'Este curso aún no tiene preguntas en el banco. Se crean al publicar un curso desde el sílabo.'));
+                return;
+            }
+            const picked = new Set();
+            const rows = data.map((item) => {
+                const check = h('input', { type: 'checkbox', 'aria-label': `Elegir: ${item.enunciado}` });
+                check.addEventListener('change', () => { if (check.checked) picked.add(item); else picked.delete(item); });
+                return h('label', { class: 'bank-row' }, check, h('span', {}, item.enunciado, item.mundo_nombre ? h('small', { class: 'muted' }, ` · ${item.mundo_nombre}`) : null));
+            });
+            bankHost.replaceChildren(
+                h('div', { class: 'card flat bank-list' }, rows),
+                h('button', {
+                    class: 'btn', type: 'button',
+                    onClick: () => {
+                        if (picked.size === 0) return;
+                        // Si la sala solo tiene la pregunta vacía inicial, se reemplaza.
+                        const onlyBlank = questions.length === 1 && !questions[0].enunciado.trim();
+                        if (onlyBlank) questions.length = 0;
+                        for (const item of picked) if (questions.length < 50) questions.push(fromBank(item));
+                        bankHost.replaceChildren();
+                        rerenderQuestions();
+                    }
+                }, 'Añadir las elegidas'));
+        } catch (error) {
+            toast(errorMessage(error), 'error');
+        } finally {
+            setBusy(bankButton, false);
+        }
+    });
+
     const showError = (message) => {
         errorBox.className = 'alert error';
         errorBox.hidden = false;
@@ -168,6 +214,8 @@ const roomBuilderModal = ({ courses, onCreated }) => {
         : h('div', { class: 'field' }, h('label', { for: 'sala-curso' }, 'Curso'), courseSelect),
     h('div', { class: 'alert info', style: { marginBottom: '16px' } },
         'Las preguntas se guardan al crear la sala. La partida se abre desde el panel del anfitrión.'),
+    h('div', { class: 'row' }, bankButton),
+    bankHost,
     questionsHost,
     errorBox,
     h('div', { class: 'form-actions' },

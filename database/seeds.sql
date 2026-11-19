@@ -274,7 +274,7 @@ INSERT INTO logro (nombre, descripcion, tipo, tipo_condicion, valor_umbral) VALU
     ('Explorador',         'Completa 10 ejercicios aprobados.',                 'insignia', 'ejercicios_aprobados',  10),
     ('Maestro PSeInt',     'Aprueba 50 ejercicios de pseudocódigo.',            'logro',    'ejercicios_aprobados',  50),
     ('Mundo Desbloqueado', 'Completa tu primer mundo temático.',                'insignia', 'mundos_completados',     1),
-    ('Explorador Global',  'Completa todos los 7 mundos del curso.',            'logro',    'mundos_completados',     7),
+    ('Explorador Global',  'Completa 7 mundos en total, de cualquier curso.',            'logro',    'mundos_completados',     7),
     ('Primer XP',          'Acumula tus primeros 100 puntos de experiencia.',   'insignia', 'xp_acumulado',         100),
     ('Centurión',          'Acumula 1000 puntos de experiencia.',               'logro',    'xp_acumulado',        1000),
     ('Legendario',         'Acumula 5000 puntos de experiencia.',               'logro',    'xp_acumulado',        5000),

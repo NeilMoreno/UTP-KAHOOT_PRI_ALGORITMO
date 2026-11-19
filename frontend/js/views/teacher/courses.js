@@ -48,7 +48,7 @@ export default async function coursesView({ root, user }) {
         if (courses.length === 0) {
             host.replaceChildren(emptyState(
                 'Todavía no hay cursos',
-                canCreate ? 'Crea tu primer curso para generar los siete mundos con su contenido base.' : 'Cuando los docentes creen cursos aparecerán aquí.'
+                canCreate ? 'Crea tu primer curso y elige su lenguaje de programación.' : 'Cuando los docentes creen cursos aparecerán aquí.'
             ));
             return;
         }

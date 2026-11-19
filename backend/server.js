@@ -21,6 +21,7 @@ const { notFoundHandler, errorHandler } = require('./middleware/errorMiddleware'
 const authRoutes = require('./routes/authRoutes');
 const cursoRoutes = require('./routes/cursoRoutes');
 const silaboRoutes = require('./routes/silaboRoutes');
+const bancoRoutes = require('./routes/bancoRoutes');
 const mundoRoutes = require('./routes/mundoRoutes');
 const ejercicioRoutes = require('./routes/ejercicioRoutes');
 const aiRoutes = require('./routes/aiRoutes');
@@ -67,6 +68,7 @@ app.get('/api/health', (req, res) => {
 // Montar Rutas del API
 app.use('/api/auth', authRoutes);
 app.use('/api/cursos/:id_curso/silabo', silaboRoutes);
+app.use('/api/cursos/:id_curso/banco', bancoRoutes);
 app.use('/api/cursos', cursoRoutes);
 app.use('/api/mundos', mundoRoutes);
 app.use('/api/ejercicios', ejercicioRoutes);
