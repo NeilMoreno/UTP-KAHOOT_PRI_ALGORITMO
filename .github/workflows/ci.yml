@@ -39,5 +39,11 @@ jobs:
         run: npm run db:test-setup
       - name: Pruebas de integración
         run: npm run test:integration
+      - name: Navegador para las pruebas e2e
+        run: npx playwright install --with-deps chromium
+      - name: Pruebas e2e de humo
+        run: npm run test:e2e
+        env:
+          CI: 'true'
       - name: Dependencias con vulnerabilidades altas
         run: npm audit --omit=dev --audit-level=high
