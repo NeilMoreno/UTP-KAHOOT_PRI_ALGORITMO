@@ -15,7 +15,7 @@ const {
     hashOpaqueToken,
     isOpaqueToken
 } = require('../utils/securityTokens');
-const { generateToken } = require('../services/tokenService');
+const { generateToken, setRefreshCookie } = require('../services/tokenService');
 const { passwordProblems } = require('../utils/passwordPolicy');
 const { validateRegistrationProfile, TERMS_VERSION } = require('../utils/age');
 const {
@@ -225,6 +225,7 @@ const registerByInvitation = async (req, res, next) => {
         await client.query('COMMIT');
         transactionStarted = false;
 
+        setRefreshCookie(res, newUser);
         return res.status(201).json({
             success: true,
             message: 'Cuenta verificada y registrada correctamente en codeInt.',
@@ -834,6 +835,7 @@ const changePassword = async (req, res, next) => {
         });
         await client.query('COMMIT');
         transactionStarted = false;
+        setRefreshCookie(res, updated.rows[0]);
         return res.json({
             success: true,
             message: 'Contraseña actualizada. Las sesiones anteriores fueron revocadas.',

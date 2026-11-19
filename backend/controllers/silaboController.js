@@ -11,8 +11,6 @@ const { recordSecurityEvent, getRequestIp } = require('../services/securityAudit
 const { httpError } = require('../utils/httpError');
 const { isUuid } = require('../utils/validation');
 
-// Los PDFs se guardan fuera de /frontend (que es público) y nunca se sirven directamente.
-const STORAGE_DIR = path.resolve(__dirname, '../../storage/silabos');
 const MAX_BYTES = 10 * 1024 * 1024;
 const PDF_SIGNATURE = Buffer.from('%PDF-');
 
@@ -79,17 +77,13 @@ const subirSilabo = async (req, res, next) => {
         }
 
         const idSilabo = crypto.randomUUID();
-        await fs.mkdir(STORAGE_DIR, { recursive: true });
-        const relativePath = `storage/silabos/${idSilabo}.pdf`;
-        await fs.writeFile(path.join(STORAGE_DIR, `${idSilabo}.pdf`), file.buffer, { flag: 'wx' });
-
         // El nombre original solo se guarda como etiqueta; nunca se usa para construir rutas.
         const label = path.basename(String(file.originalname || 'silabo.pdf')).replace(/[^\p{L}\p{N}._ -]/gu, '_').slice(0, 200) || 'silabo.pdf';
         const inserted = await query(
-            `INSERT INTO silabo (id_silabo, id_curso, nombre_archivo, ruta_archivo, estado_procesamiento, tamano_bytes, sha256)
+            `INSERT INTO silabo (id_silabo, id_curso, nombre_archivo, contenido_pdf, estado_procesamiento, tamano_bytes, sha256)
              VALUES ($1, $2, $3, $4, 'cargado', $5, $6)
              RETURNING id_silabo, nombre_archivo, estado_procesamiento, tamano_bytes, fecha_carga;`,
-            [idSilabo, req.params.id_curso, label, relativePath, file.size, crypto.createHash('sha256').update(file.buffer).digest('hex')]
+            [idSilabo, req.params.id_curso, label, file.buffer, file.size, crypto.createHash('sha256').update(file.buffer).digest('hex')]
         );
         res.status(201).json({ success: true, message: 'Sílabo cargado. Ya puedes generar el borrador del curso.', silabo: inserted.rows[0] });
     } catch (error) {
@@ -132,7 +126,10 @@ const generarBorrador = async (req, res, next) => {
             throw error;
         }
 
-        const pdfBuffer = await fs.readFile(path.resolve(__dirname, '../..', silabo.ruta_archivo));
+        const stored = await query('SELECT contenido_pdf FROM silabo WHERE id_silabo = $1;', [silabo.id_silabo]);
+        // Los silabos anteriores a la migracion 019 siguen en disco.
+        const pdfBuffer = stored.rows[0]?.contenido_pdf
+            || await fs.readFile(path.resolve(__dirname, '../..', silabo.ruta_archivo));
         const courseRow = await query('SELECT nombre, lenguaje FROM curso WHERE id_curso = $1;', [req.params.id_curso]);
         const result = await generateCourseDraft({
             pdfBuffer, courseName: courseRow.rows[0]?.nombre, language: getLanguage(courseRow.rows[0]?.lenguaje)

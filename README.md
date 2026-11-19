@@ -151,6 +151,11 @@ npm run test:integration    # suite completa contra codeint_test
 
 > No ejecutes `db:provision-app-role` para la base de pruebas: **rota la contraseña de `codeint_app` y reescribe `.env`**. `db:test-setup` aplica los mismos permisos sin hacerlo.
 
+## Despliegue y CI
+- **Despliegue de pruebas** (Render + Neon + Mailtrap): ver [DESPLIEGUE_PRUEBAS.md](DESPLIEGUE_PRUEBAS.md) y `render.yaml`.
+- **CI**: `.github/workflows/ci.yml` ejecuta pruebas unitarias, de integración (PostgreSQL) y `npm audit`.
+- **Cursos multilenguaje**: cada curso tiene su lenguaje (PSeInt, Python, JavaScript, Java, C/C++); solo PSeInt nace con 7 mundos base.
+
 ## Documentación
 
 - [`DATABASE_AND_IDENTITY_RUNBOOK.md`](DATABASE_AND_IDENTITY_RUNBOOK.md): identidad, invitaciones y roles PostgreSQL.

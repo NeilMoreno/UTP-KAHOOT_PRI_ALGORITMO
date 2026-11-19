@@ -59,7 +59,26 @@ const uploadLimiter = limiter(60 * 60 * 1000, 20, 'Se alcanzó el límite de car
 const aiEvaluationLimiter = limiter(60 * 60 * 1000, 30, 'Se alcanzó el límite de evaluaciones por IA. Intente nuevamente más tarde.');
 const aiGenerationLimiter = limiter(60 * 60 * 1000, 10, 'Se alcanzó el límite de generaciones por IA. Intente nuevamente más tarde.');
 
+// CSP propia: todo es del mismo origen (fuentes y scripts autoalojados, sin CDN). Los estilos en línea
+// los usa la interfaz (atributos style) y las imágenes `data:` los avatars/íconos incrustados.
+const contentSecurityPolicy = {
+    useDefaults: true,
+    directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", 'data:', 'blob:'],
+        fontSrc: ["'self'"],
+        connectSrc: ["'self'", 'ws:', 'wss:'],
+        objectSrc: ["'none'"],
+        baseUri: ["'self'"],
+        formAction: ["'self'"],
+        frameAncestors: ["'none'"]
+    }
+};
+
 const helmetHeaders = helmet({
+    contentSecurityPolicy,
     crossOriginEmbedderPolicy: { policy: 'credentialless' },
     crossOriginResourcePolicy: { policy: 'same-site' },
     referrerPolicy: { policy: 'no-referrer' }

@@ -20,6 +20,7 @@
     "db:bootstrap-superadmin:prompt": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/bootstrap-superadmin.ps1",
     "security:production-check": "node scripts/check-production-readiness.js",
     "build:assets": "node scripts/build-frontend-assets.js",
+    "deploy:setup": "node scripts/deploy-setup.js",
     "db:test-superadmin": "node scripts/seed-test-superadmin.js",
     "db:test-setup": "node scripts/setup-test-db.js",
     "test:integration": "node scripts/with-test-db.js npm test"

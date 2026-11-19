@@ -101,11 +101,48 @@ const sendCloudflareEmail = async ({ to, subject, text, html }) => {
     throw new EmailDeliveryError();
 };
 
+// Mailtrap (bandeja de pruebas): los correos no salen a destinatarios reales, quedan en la bandeja.
+const sendMailtrapEmail = async ({ to, subject, text, html }) => {
+    const token = process.env.MAILTRAP_API_TOKEN;
+    const inboxId = process.env.MAILTRAP_INBOX_ID;
+    const fromAddress = normalizeEmail(process.env.EMAIL_FROM_ADDRESS) || 'no-reply@codeint.test';
+    if (!token || !/^\d+$/.test(String(inboxId || ''))) {
+        throw new EmailDeliveryError('El proveedor de correo no está configurado.');
+    }
+    const body = {
+        from: { email: fromAddress, name: process.env.EMAIL_FROM_NAME || 'codeInt' },
+        to: [{ email: to }],
+        subject, text, html
+    };
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+        let response;
+        try {
+            response = await fetch(`https://sandbox.api.mailtrap.io/api/send/${inboxId}`, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+                signal: AbortSignal.timeout(10000)
+            });
+        } catch {
+            if (attempt < 2) { await delay(500 * (2 ** attempt)); continue; }
+            throw new EmailDeliveryError();
+        }
+        if (response.ok) return { sent: true, provider: 'mailtrap' };
+        if ((response.status === 429 || response.status >= 500) && attempt < 2) {
+            await delay(500 * (2 ** attempt));
+            continue;
+        }
+        throw new EmailDeliveryError();
+    }
+    throw new EmailDeliveryError();
+};
+
 const sendTransactionalEmail = async (message) => {
     const to = normalizeEmail(message.to);
     if (!to) throw new EmailDeliveryError('El destinatario no es válido.');
     const provider = (process.env.EMAIL_PROVIDER || 'disabled').toLowerCase();
     if (provider === 'cloudflare') return sendCloudflareEmail({ ...message, to });
+    if (provider === 'mailtrap') return sendMailtrapEmail({ ...message, to });
     if (provider === 'disabled') return { sent: false, provider: 'disabled' };
     throw new EmailDeliveryError('El proveedor de correo configurado no es compatible.');
 };
@@ -138,6 +175,7 @@ const sendPasswordResetEmail = async ({ to, token, expiresAt }) => {
 
 module.exports = {
     EmailDeliveryError,
+    sendTransactionalEmail,
     buildInvitationUrl,
     buildPasswordResetUrl,
     sendInvitationEmail,

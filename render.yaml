@@ -1,0 +1,47 @@
+# Despliegue de PRUEBAS en Render (servicio Node con WebSockets) + Neon (PostgreSQL) + Mailtrap (bandeja).
+# No sirve para produccion real: usa datos ficticios, correos de bandeja de pruebas y un solo servicio
+# (las salas en vivo viven en memoria, por eso NO se debe escalar a mas de una instancia).
+services:
+  - type: web
+    name: codeint
+    runtime: node
+    plan: free
+    buildCommand: npm ci --omit=dev && npm run build:assets
+    preDeployCommand: npm run deploy:setup
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeploy: false
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      - key: TRUST_PROXY
+        value: "1"
+      - key: JWT_SECRET
+        generateValue: true
+      # Neon: la cadena de conexion (con sslmode=require). Se pega en el panel de Render.
+      - key: DATABASE_URL
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false            # https://<tu-servicio>.onrender.com
+      - key: FRONTEND_INVITATION_URL
+        sync: false            # https://<tu-servicio>.onrender.com/#/registro
+      - key: FRONTEND_PASSWORD_RESET_URL
+        sync: false            # https://<tu-servicio>.onrender.com/#/restablecer-password
+      - key: EMAIL_PROVIDER
+        value: mailtrap
+      - key: MAILTRAP_API_TOKEN
+        sync: false
+      - key: MAILTRAP_INBOX_ID
+        sync: false
+      - key: EMAIL_FROM_ADDRESS
+        value: no-reply@codeint.test
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-3.5-flash-lite
+      - key: DEPLOY_SEED_DEMO
+        value: "true"
+      - key: DEMO_USER_PASSWORD
+        sync: false            # contrasena propia para las cuentas ficticias (no la del seed)

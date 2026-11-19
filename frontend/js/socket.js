@@ -20,7 +20,8 @@ export async function loadSocketClient() {
 export async function createKahootSocket() {
     const io = await loadSocketClient();
     return io({
-        auth: { token: tokenStore.get() },
+        // Función: en cada reconexión se envía el token vigente (puede haberse renovado).
+        auth: (callback) => callback({ token: tokenStore.get() }),
         transports: ['websocket', 'polling'],
         reconnection: true,
         reconnectionAttempts: 8,

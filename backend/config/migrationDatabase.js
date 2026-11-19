@@ -9,9 +9,13 @@ dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 const useSsl = process.env.DB_SSL === 'true' || process.env.NODE_ENV === 'production';
 const rejectUnauthorized = process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false';
 
-const connectionConfig = process.env.MIGRATION_DATABASE_URL
+// En un despliegue con una sola cuenta de base de datos (p. ej. Neon) basta con DATABASE_URL.
+const migrationUrl = process.env.MIGRATION_DATABASE_URL
+    || (process.env.NODE_ENV === 'production' ? process.env.DATABASE_URL : '');
+
+const connectionConfig = migrationUrl
     ? {
-        connectionString: process.env.MIGRATION_DATABASE_URL,
+        connectionString: migrationUrl,
         ssl: useSsl ? { rejectUnauthorized } : false
     }
     : {

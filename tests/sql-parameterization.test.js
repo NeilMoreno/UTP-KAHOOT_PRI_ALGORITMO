@@ -20,7 +20,7 @@ const loadController = ({ query, getClient, auditCalls = [] }) => {
         id: tokenServicePath,
         filename: tokenServicePath,
         loaded: true,
-        exports: { generateToken: () => 'jwt-de-prueba' }
+        exports: { generateToken: () => 'jwt-de-prueba', setRefreshCookie: () => {}, clearRefreshCookie: () => {}, readRefreshCookie: () => null, verifyRefreshToken: () => ({}) }
     };
     require.cache[auditServicePath] = {
         id: auditServicePath,

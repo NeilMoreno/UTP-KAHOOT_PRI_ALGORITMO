@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      # La base de pruebas se llama codeint_test (scripts/with-test-db.js reescribe el nombre).
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/codeint_db
+      MIGRATION_DATABASE_URL: postgres://postgres:postgres@localhost:5432/codeint_db
+      JWT_SECRET: ci-only-secret-with-more-than-thirty-two-chars
+      CORS_ORIGINS: http://localhost:3000
+      EMAIL_PROVIDER: disabled
+      ALLOW_DEV_INVITATION_TOKEN_RESPONSE: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Pruebas unitarias
+        run: npm test
+      - name: Base de pruebas
+        run: npm run db:test-setup
+      - name: Pruebas de integración
+        run: npm run test:integration
+      - name: Dependencias con vulnerabilidades altas
+        run: npm audit --omit=dev --audit-level=high

@@ -1,4 +1,4 @@
-# codeInt — Plan de implementación y cierre
+6# codeInt — Plan de implementación y cierre
 
 Fecha de diagnóstico: 14 de noviembre de 2026.
 

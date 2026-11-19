@@ -6,7 +6,9 @@
 const bcrypt = require('bcryptjs');
 const { query, getClient } = require('../config/database');
 const { getEstudianteGamificationSummary } = require('../services/gamificationService');
-const { generateToken } = require('../services/tokenService');
+const {
+    generateToken, setRefreshCookie, clearRefreshCookie, readRefreshCookie, verifyRefreshToken
+} = require('../services/tokenService');
 const { normalizeAvatar, lockedParts, resolveAvatar } = require('../utils/avatarCatalog');
 const { getMissionUnlocks } = require('../services/missionService');
 const { validateBirthDate, calculateAge, ADULT_AGE, TERMS_VERSION } = require('../utils/age');
@@ -109,6 +111,7 @@ const register = registerByInvitation;
         }
 
         const token = generateToken(user);
+        setRefreshCookie(res, user);
         await query('UPDATE usuario SET ultimo_acceso = now() WHERE id_usuario = $1;', [user.id_usuario]);
 
         // Si es estudiante, obtener también sus métricas de gamificación
@@ -684,7 +687,60 @@ const updateUserStatus = async (req, res, next) => {
     }
 };
 
+/**
+ * Renueva el token de acceso a partir de la cookie de refresco.
+ * POST /api/auth/refresh
+ */
+const refreshSession = async (req, res, next) => {
+    try {
+        const raw = readRefreshCookie(req);
+        if (!raw) return res.status(401).json({ success: false, error: 'NO_REFRESH', message: 'No hay una sesión que renovar.' });
+
+        let decoded;
+        try {
+            decoded = verifyRefreshToken(raw);
+        } catch {
+            clearRefreshCookie(res);
+            return res.status(401).json({ success: false, error: 'INVALID_REFRESH', message: 'La sesión expiró. Inicia sesión de nuevo.' });
+        }
+
+        const result = await query(
+            `SELECT u.id_usuario, u.id_institucion, u.nombre, u.apellido, u.email, u.rol, u.genero, u.estado,
+                    u.correo_verificado, u.token_version, u.avatar_config,
+                    to_char(u.fecha_nacimiento, 'YYYY-MM-DD') AS fecha_nacimiento,
+                    u.terminos_aceptados_en, u.terminos_version,
+                    i.nombre AS institucion_nombre, i.estado AS institucion_estado
+               FROM usuario u LEFT JOIN institucion i ON i.id_institucion = u.id_institucion
+              WHERE u.id_usuario = $1 LIMIT 1;`,
+            [decoded.id_usuario]
+        );
+        const user = result.rows[0];
+        const valid = user && user.token_version === decoded.token_version && user.estado === 'activo'
+            && user.correo_verificado && (!user.id_institucion || user.institucion_estado === 'activa');
+        if (!valid) {
+            clearRefreshCookie(res);
+            return res.status(401).json({ success: false, error: 'SESSION_REVOKED', message: 'La sesión fue cerrada. Inicia sesión de nuevo.' });
+        }
+
+        setRefreshCookie(res, user); // ventana deslizante: mientras haya uso, la sesión sigue
+        return res.json({ success: true, token: generateToken(user) });
+    } catch (error) {
+        return next(error);
+    }
+};
+
+/**
+ * Cierra la sesión de este navegador (borra la cookie de refresco).
+ * POST /api/auth/logout
+ */
+const logout = (req, res) => {
+    clearRefreshCookie(res);
+    res.json({ success: true });
+};
+
 module.exports = {
+    refreshSession,
+    logout,
     register,
     login,
     getMe,

@@ -1,12 +1,13 @@
 // Estado de sesión compartido y preferencia de tema.
-import { api, tokenStore } from './api.js';
+import { api, tokenStore, refreshAccessToken } from './api.js';
 
 export const state = { user: null };
 
 export const isLoggedIn = () => Boolean(state.user);
 
 export async function loadSession() {
-    if (!tokenStore.get()) return null;
+    // Sin token en esta pestaña, la cookie de refresco puede restaurar la sesión (nueva pestaña, recarga).
+    if (!tokenStore.get() && !(await refreshAccessToken())) return null;
     try {
         const { user } = await api('/auth/me');
         state.user = user;
@@ -26,6 +27,7 @@ export async function login(email, password) {
 
 export function logout() {
     tokenStore.clear();
+    fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' }).catch(() => {});
     state.user = null;
 }
 

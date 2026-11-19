@@ -16,6 +16,8 @@ router.post('/register', authLimiter, identityController.registerByInvitation);
 
 // Inicio de sesión
 router.post('/login', authLimiter, authController.login);
+router.post('/refresh', authController.refreshSession);
+router.post('/logout', authController.logout);
 router.post('/invitation/inspect', authLimiter, identityController.inspectInvitation);
 router.post('/password/forgot', authLimiter, identityController.requestPasswordReset);
 router.post('/password/reset', authLimiter, identityController.resetPassword);
