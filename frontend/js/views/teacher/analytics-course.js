@@ -2,6 +2,7 @@ import {
     h, icon, skeleton, errorMessage, formatNumber, formatDate, openModal
 } from '../../ui.js';
 import { api } from '../../api.js';
+import { toCsv, downloadCsv } from '../../csv.js';
 import { emptyState } from './helpers.js';
 
 const ERROR_LABELS = {
@@ -109,6 +110,20 @@ export default async function analyticsCourseView({ root, params, user }) {
     let activeTab = 'mundos';
     let loading = true;
 
+    // Exporta el avance de los estudiantes (los datos ya están autorizados para este docente).
+    const exportStudents = () => {
+        const columns = [
+            { header: 'Apellido', value: (r) => r.apellido }, { header: 'Nombre', value: (r) => r.nombre },
+            { header: 'Correo', value: (r) => r.email }, { header: 'XP en el curso', value: (r) => r.xp_en_curso },
+            { header: 'Mundos completados', value: (r) => r.mundos_completados }, { header: 'Total de mundos', value: (r) => r.total_mundos },
+            { header: 'Ejercicios aprobados', value: (r) => r.ejercicios_aprobados }, { header: 'Total de ejercicios', value: (r) => r.total_ejercicios },
+            { header: 'Promedio de puntaje', value: (r) => r.promedio_puntaje },
+            { header: 'Última actividad', value: (r) => (r.ultima_actividad ? new Date(r.ultima_actividad).toISOString() : '') }
+        ];
+        const slug = String(data.curso.codigo_curso || 'curso').replace(/[^\w-]+/g, '_');
+        downloadCsv(`avance-${slug}.csv`, toCsv(data.estudiantes, columns));
+    };
+
     const renderHeader = () => {
         const course = data.curso;
         headerHost.replaceChildren(h('div', { class: 'page-head' },
@@ -117,6 +132,7 @@ export default async function analyticsCourseView({ root, params, user }) {
                 h('p', {}, `${course.codigo_curso} · ${course.periodo} · ${course.docente_nombre}`)),
             h('div', { class: 'row' },
                 h('span', { class: 'chip' }, course.institucion_nombre),
+                h('button', { class: 'btn secondary small', type: 'button', disabled: data.estudiantes.length === 0, onClick: exportStudents }, icon('arrow', 14), 'Exportar CSV'),
                 h('a', { class: 'btn ghost small', href: '#/analiticas' }, icon('arrow', 14), 'Volver'))));
 
         const resumen = data.resumen;
