@@ -25,6 +25,7 @@
     "db:test-setup": "node scripts/setup-test-db.js",
     "test:integration": "node scripts/with-test-db.js npm test",
     "test:e2e": "playwright test",
+    "lint": "node scripts/check-syntax.js",
     "docs:dictionary": "node scripts/generate-data-dictionary.js"
   },
   "keywords": [

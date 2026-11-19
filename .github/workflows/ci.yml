@@ -33,6 +33,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Sintaxis de todo el código
+        run: npm run lint
       - name: Pruebas unitarias
         run: npm test
       - name: Base de pruebas
