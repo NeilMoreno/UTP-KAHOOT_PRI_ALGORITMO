@@ -279,9 +279,10 @@ export default async function playRoomView({ root, params, user }) {
         setStatus('');
         const podium = data.podio || [];
         const logros = Array.isArray(data.logros_desbloqueados) ? data.logros_desbloqueados : [];
-        const puesto = Number(data.tuPuesto) || 0;
+        // Sin puntos no hay puesto en el podio.
+        const puesto = Number(data.tuPuntaje) > 0 ? (Number(data.tuPuesto) || 0) : 0;
 
-        const step = (participant, place) => participant
+        const step = (participant, place) => participant && Number(participant.puntaje) > 0
             ? h('div', { class: `podium-step ${place}` },
                 h('span', { class: 'medal' }, MEDALS[['first', 'second', 'third'].indexOf(place)] || '🏅'),
                 createAvatar(participant.avatar, { size: 64, label: '' }),

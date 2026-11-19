@@ -294,7 +294,8 @@ export default async function hostView({ root, params }) {
     };
 
     const podiumStep = (participant, place) => {
-        if (!participant) return h('div', { class: `podium-step ${place}` }, h('span', { class: 'muted small' }, '—'));
+        // Quien no sumó puntos no ocupa el podio (aparecería un "1.º" sin haber acertado nada).
+        if (!participant || !(Number(participant.puntaje) > 0)) return h('div', { class: `podium-step ${place}` }, h('span', { class: 'muted small' }, '—'));
         return h('div', { class: `podium-step ${place}` },
             h('span', { class: 'medal' }, MEDALS[['first', 'second', 'third'].indexOf(place)] || '🏅'),
             createAvatar(participant.avatar, { size: 64, label: '' }),

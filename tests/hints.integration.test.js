@@ -116,6 +116,7 @@ test('pistas de IA: tras un intento, 3 niveles, cuota del docente y límites', {
     } finally {
         hintService.generateHint = original;
         if (courseId) {
+            await migrationPool.query('DELETE FROM pista_ia WHERE id_ejercicio IN (SELECT id_ejercicio FROM ejercicio WHERE id_curso = $1);', [courseId]).catch(() => {});
             await migrationPool.query('DELETE FROM uso_ia WHERE id_envio_ejercicio IN (SELECT id_envio_ejercicio FROM envio_ejercicio WHERE id_curso = $1);', [courseId]).catch(() => {});
             await pool.query(`UPDATE matricula SET estado = 'retirada' WHERE id_curso = $1`, [courseId]).catch(() => {});
             await pool.query(`UPDATE curso SET estado = 'inactivo' WHERE id_curso = $1`, [courseId]).catch(() => {});
